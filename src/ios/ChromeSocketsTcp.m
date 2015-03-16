@@ -439,7 +439,7 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
     
     _sockets[[NSNumber numberWithUnsignedInteger:socket->_socketId]] = socket;
     
-    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:socket->_socketId] callbackId:command.callbackId];
+    [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:(int)socket->_socketId] callbackId:command.callbackId];
 }
 
 - (void)update:(CDVInvokedUrlCommand*)command
@@ -599,7 +599,7 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
         id<CDVCommandDelegate> commandDelegate = self.commandDelegate;
         [socket->_sendCallbacks addObject:[^() {
             VERBOSE_LOG(@"ACK %@.%@ Write", socketId, command.callbackId);
-            [commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:[data length]] callbackId:command.callbackId];
+            [commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:(int)[data length]] callbackId:command.callbackId];
         } copy]];
         
         [socket->_socket writeData:data withTimeout:-1 tag:-1];
