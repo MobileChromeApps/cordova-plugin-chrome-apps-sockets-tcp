@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-registerManualTests('chrome.sockets.tcp', function(rootEl, addButton) {
+exports.defineManualTests = function(rootEl, addButton) {
   var addr = '127.0.0.1';
   var port = 12345;
 
@@ -175,7 +175,7 @@ registerManualTests('chrome.sockets.tcp', function(rootEl, addButton) {
           chrome.sockets.tcp.onReceive.removeListener(startTLSReceiver);
         });
       }
-    }
+    };
 
     chrome.sockets.tcp.onReceive.addListener(startTLSReceiver);
 
@@ -329,4 +329,4 @@ registerManualTests('chrome.sockets.tcp', function(rootEl, addButton) {
   }
 
   initPage();
-});
+};
