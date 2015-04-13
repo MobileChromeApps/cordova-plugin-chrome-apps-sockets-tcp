@@ -7,18 +7,18 @@ exports.defineManualTests = function(rootEl, addButton) {
   var port = 12345;
 
   function receiveErrorListener(info) {
-    logger('Client RecvError on socket: ' + info.socketId);
-    logger(info);
+    console.log('Client RecvError on socket: ' + info.socketId);
+    console.log(info);
     chrome.sockets.tcp.disconnect(info.socketId);
     chrome.sockets.tcp.close(info.socketId);
   }
 
   function receiveListener(info) {
-    logger('Client Recv: success');
-    logger(info);
+    console.log('Client Recv: success');
+    console.log(info);
     if (info.data) {
       var message = String.fromCharCode.apply(null, new Uint8Array(info.data));
-      logger(message);
+      console.log(message);
     }
     chrome.sockets.tcp.disconnect(info.socketId);
     chrome.sockets.tcp.close(info.socketId);
@@ -28,14 +28,14 @@ exports.defineManualTests = function(rootEl, addButton) {
         fe.file(function(file) {
           var reader = new FileReader();
           reader.onloadend = function(e) {
-            logger('Onload End');
-            logger(e);
-            logger('result is ' + this.result);
+            console.log('Onload End');
+            console.log(e);
+            console.log('result is ' + this.result);
           };
 
           reader.readAsText(file);
         });
-      }, logger);
+      }, console.log);
     }
   }
 
@@ -53,7 +53,7 @@ exports.defineManualTests = function(rootEl, addButton) {
     chrome.sockets.tcp.create(function(createInfo) {
       chrome.sockets.tcp.connect(createInfo.socketId, addr, port, function(result) {
         if (result === 0) {
-          logger('connect: success');
+          console.log('connect: success');
         }
       });
     });
@@ -61,12 +61,12 @@ exports.defineManualTests = function(rootEl, addButton) {
 
   function connectAndPause() {
     chrome.sockets.tcp.create(function(createInfo) {
-      logger('create socket: ' + createInfo.socketId);
+      console.log('create socket: ' + createInfo.socketId);
       chrome.sockets.tcp.connect(createInfo.socketId, addr, port, function(result) {
         if (result === 0) {
-          logger('connect: success');
+          console.log('connect: success');
           chrome.sockets.tcp.setPaused(createInfo.socketId, true, function() {
-            logger('paused');
+            console.log('paused');
           });
         }
       });
@@ -79,7 +79,7 @@ exports.defineManualTests = function(rootEl, addButton) {
         if (result === 0) {
           chrome.sockets.tcp.send(createInfo.socketId, data, function(result) {
             if (result.resultCode === 0) {
-              logger('connectAndSend: success');
+              console.log('connectAndSend: success');
               chrome.sockets.tcp.disconnect(createInfo.socketId);
               chrome.sockets.tcp.close(createInfo.socketId);
             }
@@ -109,18 +109,18 @@ exports.defineManualTests = function(rootEl, addButton) {
       numBytes: 15
     };
 
-    logger(options);
+    console.log(options);
 
     chrome.sockets.tcp.create(function(createInfo) {
 
       chrome.sockets.tcp.pipeToFile(createInfo.socketId, options, function() {
-        logger('file redirection is done');
+        console.log('file redirection is done');
       });
 
       chrome.sockets.tcp.connect(createInfo.socketId, hostname, 80, function(result) {
         if (result === 0) {
           chrome.sockets.tcp.send(createInfo.socketId, message, function(result) {
-            logger('send result: ' + result);
+            console.log('send result: ' + result);
           });
         }
       });
@@ -141,7 +141,7 @@ exports.defineManualTests = function(rootEl, addButton) {
           if (result === 0) {
             chrome.sockets.tcp.secure(createInfo.socketId, {tlsVersion: {min: 'ssl3', max: 'tls1.2'}}, function(result) {
               if (result !== 0) {
-                logger('secure connection failed: ' + result);
+                console.log('secure connection failed: ' + result);
               }
 
               chrome.sockets.tcp.setPaused(createInfo.socketId, false, function() {
@@ -150,7 +150,7 @@ exports.defineManualTests = function(rootEl, addButton) {
                   (function(i) {
                     chrome.sockets.tcp.send(createInfo.socketId, message, function(result) {
                       if (result.resultCode === 0) {
-                        logger('connectSecureAndSend: success ' + i);
+                        console.log('connectSecureAndSend: success ' + i);
                       }
                     });
                   })(i);
@@ -171,7 +171,7 @@ exports.defineManualTests = function(rootEl, addButton) {
       var message = String.fromCharCode.apply(null, new Uint8Array(info.data));
       if (message.indexOf('Ready to start TLS' > -1)) {
         chrome.sockets.tcp.secure(info.socketId, function(result) {
-          logger('secure result:' + result);
+          console.log('secure result:' + result);
           chrome.sockets.tcp.onReceive.removeListener(startTLSReceiver);
         });
       }
@@ -187,7 +187,7 @@ exports.defineManualTests = function(rootEl, addButton) {
       chrome.sockets.tcp.connect(createInfo.socketId, addr, port, function(result) {
         chrome.sockets.tcp.send(createInfo.socketId, command, function(result) {
           if (result === 0) {
-            logger('send command success');
+            console.log('send command success');
           }
         });
       });
@@ -199,10 +199,10 @@ exports.defineManualTests = function(rootEl, addButton) {
     chrome.sockets.tcp.create(function(createInfo) {
       chrome.sockets.tcp.send(createInfo.socketId, data, function(result) {
         if (result.resultCode === 0) {
-          logger('send: success');
+          console.log('send: success');
           chrome.sockets.tcp.close(createInfo.socketId);
         } else {
-          logger('send error: ' + result.resultCode);
+          console.log('send error: ' + result.resultCode);
         }
       });
     });
@@ -213,10 +213,10 @@ exports.defineManualTests = function(rootEl, addButton) {
       chrome.sockets.tcp.disconnect(createInfo.socketId, function() {
         chrome.sockets.tcp.send(createInfo.socketId, data, function(result) {
           if (result.resultCode === 0) {
-            logger('send: success');
+            console.log('send: success');
             chrome.sockets.tcp.close(createInfo.socketId);
           } else {
-            logger('send error: ' + result.resultCode);
+            console.log('send error: ' + result.resultCode);
           }
         });
       });
@@ -227,7 +227,7 @@ exports.defineManualTests = function(rootEl, addButton) {
     chrome.sockets.tcp.getSockets(function(socketsInfo) {
       if (!socketsInfo) return;
       for (var i = 0; i < socketsInfo.length; i++) {
-        logger(socketsInfo[i]);
+        console.log(socketsInfo[i]);
       }
     });
   }
@@ -243,7 +243,7 @@ exports.defineManualTests = function(rootEl, addButton) {
       chrome.sockets.tcp.update(createInfo.socketId, updatedProperties);
 
       chrome.sockets.tcp.getInfo(createInfo.socketId, function(socketInfo) {
-        logger(socketInfo);
+        console.log(socketInfo);
       });
 
     });
@@ -253,17 +253,17 @@ exports.defineManualTests = function(rootEl, addButton) {
     chrome.sockets.tcp.getSockets(function(socketsInfo) {
       if (!socketsInfo) return;
       for (var i = 0; i < socketsInfo.length; i++) {
-        logger('closing socket: ' + socketsInfo[i].socketId);
+        console.log('closing socket: ' + socketsInfo[i].socketId);
         chrome.sockets.tcp.close(socketsInfo[i].socketId);
       }
     });
   }
 
   function initPage() {
-    logger('Run this in terminal:');
-    logger('while true; do');
-    logger('  (nc -lv 12345 | xxd) || break; echo;');
-    logger('done');
+    console.log('Run this in terminal:');
+    console.log('while true; do');
+    console.log('  (nc -lv 12345 | xxd) || break; echo;');
+    console.log('done');
 
     var arr = new Uint8Array(256);
     for (var i = 0; i < arr.length; i++) {
