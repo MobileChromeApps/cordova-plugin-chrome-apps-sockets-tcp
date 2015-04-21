@@ -78,7 +78,6 @@ static NSString* stringFromData(NSData* data) {
     NSInteger _pendingReceive;
 }
 
-- (CDVPlugin*)initWithWebView:(UIWebView*)theWebView;
 - (void)create:(CDVInvokedUrlCommand*)command;
 - (void)update:(CDVInvokedUrlCommand*)command;
 - (void)setPaused:(CDVInvokedUrlCommand*)command;
@@ -404,16 +403,12 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 
 @implementation ChromeSocketsTcp
 
-- (CDVPlugin*)initWithWebView:(UIWebView*)theWebView
+- (void)pluginInitialize
 {
-    self = [super init];
-    if (self) {
-        _sockets = [NSMutableDictionary dictionary];
-        _nextSocketId = 1;
-        _receiveEventsCallbackId = nil;
-        _pendingReceive = 0;
-    }
-    return self;
+    _sockets = [NSMutableDictionary dictionary];
+    _nextSocketId = 1;
+    _receiveEventsCallbackId = nil;
+    _pendingReceive = 0;
 }
 
 - (void)onReset
