@@ -1,10 +1,10 @@
 // Copyright (c) 2014 The Chromium Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-var Event = require('org.chromium.common.events');
+var Event = require('cordova-plugin-chrome-apps-common.events');
 var platform = cordova.require('cordova/platform');
 var exec = cordova.require('cordova/exec');
-var callbackWithError = require('org.chromium.common.errors').callbackWithError;
+var callbackWithError = require('cordova-plugin-chrome-apps-common.errors').callbackWithError;
 
 exports.create = function(properties, callback) {
     if (typeof properties == 'function') {
@@ -202,4 +202,4 @@ function registerReceiveEvents() {
     exec(win, fail, 'ChromeSocketsTcp', 'registerReceiveEvents', []);
 }
 
-require('org.chromium.common.helpers').runAtStartUp(registerReceiveEvents);
+require('cordova-plugin-chrome-apps-common.helpers').runAtStartUp(registerReceiveEvents);
