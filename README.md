@@ -12,6 +12,9 @@ The API reference is [here](https://developer.chrome.com/apps/sockets_tcp).
 
 # Release Notes
 
+## 1.3.3 (April 30, 2015)
+- Renamed plugin to pubilsh to NPM
+
 ## 1.3.2 (Mar 17, 2015)
 * ios: Fix warning about unsigned -> int
 
