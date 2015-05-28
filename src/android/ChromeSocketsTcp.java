@@ -1004,7 +1004,10 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
           sslNetBuffer.clear();
         } else {
-          bytesSent = channel.write(sendPacket.data);
+        	while (sendPacket.data.remaining() > 0)
+        	{
+        		bytesSent += channel.write(sendPacket.data);
+        	}
         }
         sendPacket.callbackContext.success(bytesSent);
       } catch (InterruptedException e) {
