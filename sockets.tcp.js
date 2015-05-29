@@ -190,7 +190,7 @@ function registerReceiveEvents() {
                     // packet. exec it after fire() will allow all API calls in
                     // the onReceive listener exec before next read, such as,
                     // pause the socket.
-                    exec(null, null, 'ChromeSocketsTcp', 'readyToRead', []);
+                    exec(null, null, 'ChromeSocketsTcp', 'readyToRead', [recvInfo.socketId]);
                 }
             };
         })();

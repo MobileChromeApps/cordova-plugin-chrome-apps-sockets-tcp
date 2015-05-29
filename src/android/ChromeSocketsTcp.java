@@ -44,7 +44,6 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   private CallbackContext recvContext;
   private Selector selector;
   private SelectorThread selectorThread;
-  private boolean isReadyToRead;
 
   @Override
   public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext)
@@ -79,7 +78,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     } else if ("registerReceiveEvents".equals(action)) {
       registerReceiveEvents(args, callbackContext);
     } else if ("readyToRead".equals(action)) {
-      readyToRead();
+      readyToRead(args);
     } else {
       return false;
     }
@@ -403,11 +402,14 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   private void registerReceiveEvents(CordovaArgs args, final CallbackContext callbackContext) {
     recvContext = callbackContext;
     startSelectorThread();
-    readyToRead();
   }
 
-  private void readyToRead() {
-    isReadyToRead = true;
+  private void readyToRead(CordovaArgs args) throws JSONException {
+    int socketId = args.getInt(0);
+    final TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    if (socket != null) {
+      addSelectorMessage(socket, SelectorMessageType.SO_ADD_READ_INTEREST, null);
+    }
   }
 
   private void startSelectorThread() {
@@ -1039,43 +1041,40 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
     // This method can be only called by selector thread.
     int read() throws JSONException {
-
       int bytesRead = 0;
       if (paused) {
         // Remove read interests to avoid seletor wakeup when readable.
         removeInterestSet(SelectionKey.OP_READ);
-        return bytesRead;
-      }
-
-      // This may cause starvation if multiple sockets are trying to reading
-      // large amount of data at same time.
-      if (!isReadyToRead && uriOutputStream == null) {
-        return bytesRead;
+        return 0;
       }
 
       try {
         bytesRead = channel.read(receiveDataBuffer);
+
         if (bytesRead < 0)
           throw new IOException("Socket closed by remote peer");
+        if (bytesRead == 0) {
+          Log.w(LOG_TAG, "no data read from socket");
+          return 0;
+        }
 
         if (sslEngine != null) {
-
           SSLEngineResult res = tryUnwrapReceiveData();
 
           if (res.getStatus() == SSLEngineResult.Status.OK) {
             sendReceive(sslPeerAppBuffer);
           }
+          // else: need to wait for more data.
         } else {
           receiveDataBuffer.flip();
           sendReceive(receiveDataBuffer);
           receiveDataBuffer.clear();
         }
-
-
       } catch (IOException e) {
         JSONObject info = buildErrorInfo(-2, e.getMessage());
         info.put("socketId", socketId);
         sendReceiveEvent(new PluginResult(Status.ERROR, info));
+        return -1;
       } catch (JSONException e) {
       }
       return bytesRead;
@@ -1121,13 +1120,13 @@ public class ChromeSocketsTcp extends CordovaPlugin {
         // TODO: avoid this copy by creating a new PluginResult overload.
         recvBytes = new byte[data.remaining()];
         data.get(recvBytes);
+        removeInterestSet(SelectionKey.OP_READ);
       }
 
       if (recvBytes != null) {
         JSONObject info = new JSONObject();
         info.put("socketId", socketId);
         sendReceiveEvent(new PluginResult(Status.OK, info));
-        isReadyToRead = false;
         sendReceiveEvent(new PluginResult(Status.OK, recvBytes));
       }
     }
