@@ -568,8 +568,10 @@ public class ChromeSocketsTcp extends CordovaPlugin {
           TcpSocket socket = (TcpSocket)key.attachment();
 
           if (key.isReadable()) {
+
             try {
-              if (socket.read() < 0) {
+              int amountRead = socket.read();
+              if (amountRead < 0) {
                 addSelectorMessage(socket, SelectorMessageType.SO_DISCONNECTED, null);
               }
             } catch (JSONException e) {
@@ -984,31 +986,37 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
     // This method can be only called by selector thread.
     void dequeueSend() {
-      if (sendPackets.peek() == null) {
+      TcpSendPacket sendPacket = sendPackets.peek();
+      if (sendPacket == null) {
         removeInterestSet(SelectionKey.OP_WRITE);
         return;
       }
 
-      TcpSendPacket sendPacket = null;
       try {
-        int bytesSent = 0;
-        sendPacket = sendPackets.take();
         if (sslEngine != null) {
-          SSLEngineResult res;
-          do {
-            res = sslEngine.wrap(sendPacket.data, sslNetBuffer);
-          } while (maybeGrowBuffersForWrap(res));
+          if (sendPacket.data.hasRemaining()) {
+            // First time in here, encrypt.
+            SSLEngineResult res;
+            do {
+              res = sslEngine.wrap(sendPacket.data, sslNetBuffer);
+            } while (maybeGrowBuffersForWrap(res));
 
-          sslNetBuffer.flip();
-          bytesSent = res.bytesConsumed();
+            sslNetBuffer.flip();
+          }
 
           channel.write(sslNetBuffer);
-
-          sslNetBuffer.clear();
+          if (!sslNetBuffer.hasRemaining()) {
+            sslNetBuffer.clear();
+            sendPackets.take();
+            sendPacket.callbackContext.success(sendPacket.size);
+          }
         } else {
-          bytesSent = channel.write(sendPacket.data);
+          channel.write(sendPacket.data);
+          if (!sendPacket.data.hasRemaining()) {
+            sendPackets.take();
+            sendPacket.callbackContext.success(sendPacket.size);
+          }
         }
-        sendPacket.callbackContext.success(bytesSent);
       } catch (InterruptedException e) {
       } catch (IOException e) {
         sendPacket.callbackContext.error(buildErrorInfo(-2, e.getMessage()));
@@ -1130,15 +1138,16 @@ public class ChromeSocketsTcp extends CordovaPlugin {
         sendReceiveEvent(new PluginResult(Status.OK, recvBytes));
       }
     }
+  }
+  private static class TcpSendPacket {
+    final ByteBuffer data;
+    final CallbackContext callbackContext;
+    final int size;
 
-    private class TcpSendPacket {
-      final ByteBuffer data;
-      final CallbackContext callbackContext;
-
-      TcpSendPacket(ByteBuffer data, CallbackContext callbackContext) {
-        this.data = data;
-        this.callbackContext = callbackContext;
-      }
+    TcpSendPacket(ByteBuffer data, CallbackContext callbackContext) {
+      this.data = data;
+      this.callbackContext = callbackContext;
+      size = data.remaining();
     }
   }
 }
