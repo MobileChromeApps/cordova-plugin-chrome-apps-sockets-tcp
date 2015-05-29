@@ -107,7 +107,11 @@ exports.send = function(socketId, data, callback) {
         };
         callbackWithError(error.message, callback, sendInfo);
     };
-    exec(win, fail, 'ChromeSocketsTcp', 'send', [socketId, data]);
+    if (data.byteLength == 0) {
+      win(0);
+    } else {
+      exec(win, fail, 'ChromeSocketsTcp', 'send', [socketId, data]);
+    }
 };
 
 exports.close = function(socketId, callback) {
