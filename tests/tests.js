@@ -2,9 +2,18 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+function createData(size) {
+  var arr = new Uint8Array(size);
+  for (var i = 0; i < arr.length; i++) {
+    arr[i] = i % 256;
+  }
+  return arr.buffer;
+}
+
 exports.defineManualTests = function(rootEl, addButton) {
   var addr = '127.0.0.1';
   var port = 12345;
+  var smallData = createData(256);
 
   function receiveErrorListener(info) {
     console.log('Client RecvError on socket: ' + info.socketId);
@@ -265,11 +274,6 @@ exports.defineManualTests = function(rootEl, addButton) {
     console.log('  (nc -lv 12345 | xxd) || break; echo;');
     console.log('done');
 
-    var arr = new Uint8Array(256);
-    for (var i = 0; i < arr.length; i++) {
-      arr[i] = i;
-    }
-
     addButton('add receive listeners', function() {
       addReceiveListeners();
     });
@@ -287,7 +291,7 @@ exports.defineManualTests = function(rootEl, addButton) {
     });
 
     addButton('TCP: connect & send', function() {
-      connectAndSend(arr.buffer);
+      connectAndSend(smallData);
     });
 
     addButton('TCP: test redirect to file with append', function() {
@@ -307,11 +311,11 @@ exports.defineManualTests = function(rootEl, addButton) {
     });
 
     addButton('TCP: send to unconnected', function() {
-      send(arr.buffer);
+      send(smallData);
     });
 
     addButton('TCP: unconnected & send', function() {
-      disconnectAndSend(arr.buffer);
+      disconnectAndSend(smallData);
     });
 
     addButton('TCP: update socket', function() {
@@ -340,11 +344,8 @@ exports.defineAutoTests = function() {
   var bindAddr = '0.0.0.0';
   var connectAddr = '127.0.0.1';
   var serverPort = Math.floor(Math.random() * (65535-1024)) + 1024; // random in 1024 -> 65535
-  var arr = new Uint8Array(256);
-  for (var i = 0; i < arr.length; i++) {
-    arr[i] = i;
-  }
-  var data = arr.buffer;
+  var smallData = createData(300);
+  var bigData = createData(256 * 1024 + 1); // +1 to not be a multiple of buffer size.
 
   // Socket management -- Make sure we clean up sockets after each test, even upon failure
   var clientSockets = [];
@@ -379,21 +380,8 @@ exports.defineAutoTests = function() {
       toBeValidTcpReadResultEqualTo: function(util, customEqualityTesters) {
         return {
           compare: function(actual, expected) {
-            if (Object.prototype.toString.call(expected).slice(8, -1) !== "ArrayBuffer")
-              throw new Error("toBeValidTcpReadResultEqualTo expects an ArrayBuffer");
-            var result = { pass: true };
-            if (!actual) result.pass = false;
-            if (!actual.data) result.pass = false;
-            if (Object.prototype.toString.call(actual.data).slice(8, -1) !== "ArrayBuffer") result.pass = false;
-
-            var sent = new Uint8Array(expected);
-            var recv = new Uint8Array(actual.data);
-            if (recv.length !== sent.length) result.pass = false;
-
-            for (var i = 0; i < recv.length; i++) {
-              if (recv[i] !== sent[i]) result.pass = false;
-            }
-            return result;
+            if (!actual) return { message:'c', pass: false };
+            return customMatchers.toBeArrayBuffer(util, customEqualityTesters).compare(actual.data, expected);
           }
         };
       },
@@ -401,19 +389,26 @@ exports.defineAutoTests = function() {
         return {
           compare: function(actual, expected) {
             if (Object.prototype.toString.call(expected).slice(8, -1) !== "ArrayBuffer")
-              throw new Error("toBeArrayBuffer expects an ArrayBuffer");
-            var result = {pass: true};
-            if (!actual) result.pass = false;
-            if (Object.prototype.toString.call(actual).slice(8, -1) !== "ArrayBuffer") result.pass = false;
+              throw new Error("toBeValidTcpReadResultEqualTo expects an ArrayBuffer");
+            if (!actual) return { message:'a', pass: false };
+            if (Object.prototype.toString.call(actual).slice(8, -1) !== "ArrayBuffer") return { message:'b', pass: false };
 
             var sent = new Uint8Array(expected);
             var recv = new Uint8Array(actual);
-            if (recv.length !== sent.length) result.pass = false;
+            if (recv.length !== sent.length) {
+              return {
+                pass: false,
+                message: "expected len: " + expected.byteLength + " got len: " + actual.byteLength
+              };
+            }
 
             for (var i = 0; i < recv.length; i++) {
-              if (recv[i] !== sent[i]) result.pass = false;
+              if (recv[i] !== sent[i]) {
+                result.pass = false;
+                return { pass: false, message: "bytes differed at index " + i }
+              }
             }
-            return result;
+            return {pass:true};
           }
         };
       }
@@ -465,6 +460,10 @@ exports.defineAutoTests = function() {
   });
 
   describe('TCP and TCPServer', function() {
+    afterEach(function() {
+      chrome.sockets.tcpServer.onAccept.listeners.length = 0;
+      chrome.sockets.tcp.onReceive.listeners.length = 0;
+    });
 
     it('port is available (sanity test)', function(done) {
       chrome.sockets.tcpServer.listen(serverSockets[0].socketId, bindAddr, serverPort, function(listenResult) {
@@ -562,7 +561,7 @@ exports.defineAutoTests = function() {
 
       var recvListener = function(info) {
         expect(info.socketId).not.toEqual(clientSockets[0].socketId);
-        expect(info).toBeValidTcpReadResultEqualTo(data);
+        expect(info).toBeValidTcpReadResultEqualTo(smallData);
         chrome.sockets.tcp.onReceive.removeListener(recvListener);
         done();
       };
@@ -572,21 +571,55 @@ exports.defineAutoTests = function() {
         expect(listenResult).toEqual(0);
         chrome.sockets.tcp.connect(clientSockets[0].socketId, connectAddr, serverPort, function(connectResult) {
           expect(connectResult).toEqual(0);
-          chrome.sockets.tcp.send(clientSockets[0].socketId, data, function(result) {
+          chrome.sockets.tcp.send(clientSockets[0].socketId, smallData, function(result) {
             expect(result.resultCode).toEqual(0);
-            expect(result.bytesSent).toEqual(256);
+            expect(result.bytesSent).toEqual(smallData.byteLength);
           });
         });
       });
     });
 
+    it('TCP connect write big', function(done) {
+      var acceptListener = function(info) {
+        expect(info.socketId).toEqual(serverSockets[0].socketId);
+        expect(info.clientSocketId).toBeTruthy();
+        chrome.sockets.tcp.setPaused(info.clientSocketId, false, function() {
+          chrome.sockets.tcpServer.onAccept.removeListener(acceptListener);
+        });
+      };
+      chrome.sockets.tcpServer.onAccept.addListener(acceptListener);
+
+      var amountReceived = 0;
+
+      var recvListener = function(info) {
+        expect(info.socketId).not.toEqual(clientSockets[0].socketId);
+        expect(info.data).toBeArrayBuffer(bigData.slice(amountReceived, amountReceived + info.data.byteLength));
+        amountReceived += info.data.byteLength;
+        if (amountReceived == bigData.byteLength) {
+          done();
+        }
+      };
+      chrome.sockets.tcp.onReceive.addListener(recvListener);
+
+      chrome.sockets.tcpServer.listen(serverSockets[0].socketId, bindAddr, serverPort, function(listenResult) {
+        expect(listenResult).toEqual(0);
+        chrome.sockets.tcp.connect(clientSockets[0].socketId, connectAddr, serverPort, function(connectResult) {
+          expect(connectResult).toEqual(0);
+          chrome.sockets.tcp.send(clientSockets[0].socketId, bigData, function(result) {
+            expect(result.resultCode).toEqual(0);
+            expect(result.bytesSent).toEqual(bigData.byteLength);
+          });
+        });
+      });
+    }, 4000);
+
     it('TCPServer connect write', function(done) {
       var acceptListener = function(info) {
         expect(info.socketId).toEqual(serverSockets[0].socketId);
         expect(info.clientSocketId).toBeTruthy();
-        chrome.sockets.tcp.send(info.clientSocketId, data, function(result) {
+        chrome.sockets.tcp.send(info.clientSocketId, smallData, function(result) {
           expect(result.resultCode).toEqual(0);
-          expect(result.bytesSent).toEqual(256);
+          expect(result.bytesSent).toEqual(smallData.byteLength);
           chrome.sockets.tcpServer.onAccept.removeListener(acceptListener);
         });
       };
@@ -594,7 +627,7 @@ exports.defineAutoTests = function() {
 
       var recvListener = function(info) {
         expect(info.socketId).toEqual(clientSockets[0].socketId);
-        expect(info).toBeValidTcpReadResultEqualTo(data);
+        expect(info).toBeValidTcpReadResultEqualTo(smallData);
         chrome.sockets.tcp.onReceive.removeListener(recvListener);
         done();
       };
@@ -614,9 +647,9 @@ exports.defineAutoTests = function() {
         var acceptListener = function(info) {
           expect(info.socketId).toEqual(serverSockets[0].socketId);
           expect(info.clientSocketId).toBeTruthy();
-          chrome.sockets.tcp.send(info.clientSocketId, data, function(result) {
+          chrome.sockets.tcp.send(info.clientSocketId, smallData, function(result) {
             expect(result.resultCode).toEqual(0);
-            expect(result.bytesSent).toEqual(256);
+            expect(result.bytesSent).toEqual(smallData.byteLength);
             chrome.sockets.tcpServer.onAccept.removeListener(acceptListener);
           });
         };
@@ -640,11 +673,11 @@ exports.defineAutoTests = function() {
             window.resolveLocalFileSystemURL(pipeOptions.uri, function(fe) {
               fe.file(function(file) {
                 var reader = new FileReader();
-                reader.onloadend = function(fileEntry) {
+                reader.onloadend = function() {
                   var allData = new Uint8Array(info.data.byteLength + pipeOptions.numBytes);
                   allData.set(new Uint8Array(this.result), 0);
                   allData.set(new Uint8Array(info.data), pipeOptions.numBytes);
-                  expect(allData.buffer).toBeArrayBuffer(data);
+                  expect(allData.buffer).toBeArrayBuffer(smallData);
                   chrome.sockets.tcp.onReceive.removeListener(recvListener);
                   done();
                 };
@@ -669,9 +702,9 @@ exports.defineAutoTests = function() {
         var acceptListener = function(info) {
           expect(info.socketId).toEqual(serverSockets[0].socketId);
           expect(info.clientSocketId).toBeTruthy();
-          chrome.sockets.tcp.send(info.clientSocketId, data, function(result) {
+          chrome.sockets.tcp.send(info.clientSocketId, smallData, function(result) {
             expect(result.resultCode).toEqual(0);
-            expect(result.bytesSent).toEqual(256);
+            expect(result.bytesSent).toEqual(smallData.byteLength);
             chrome.sockets.tcpServer.onAccept.removeListener(acceptListener);
           });
         };
@@ -691,15 +724,16 @@ exports.defineAutoTests = function() {
           var pipeOptions = {
             uri: cordova.file.applicationStorageDirectory + 'Documents/redirectToFileAll.txt',
             append: false,
-            numBytes: 256
+            numBytes: smallData.byteLength
           };
 
           chrome.sockets.tcp.pipeToFile(clientSockets[0].socketId, pipeOptions, function() {
             window.resolveLocalFileSystemURL(pipeOptions.uri, function(fe) {
               fe.file(function(file) {
                 var reader = new FileReader();
-                reader.onloadend = function(fileEntry) {
-                  expect(this.result).toBeArrayBuffer(data);
+                reader.onloadend = function() {
+                  expect(this.result.byteLength).toBe(smallData.byteLength);
+                  expect(this.result).toBeArrayBuffer(smallData);
                   done();
                 };
                 reader.readAsArrayBuffer(file);
@@ -715,20 +749,28 @@ exports.defineAutoTests = function() {
     });
 
     it('TCP secure get https website', function(done) {
-      var hostname = 'httpbin.org';
+      var hostname = 'ajax.googleapis.com';
       var port = 443;
-      var requestString = 'GET /get HTTP/1.1\r\nHOST: ' + hostname + '\r\n\r\n';
+      var requestString = 'GET /ajax/libs/jquery/2.1.3/jquery.min.js HTTP/1.1\r\nHOST: ' + hostname + '\r\n\r\n';
       var request = new ArrayBuffer(requestString.length);
       var reqView = new Uint8Array(request);
       for (var i = 0, strLen = requestString.length; i < strLen; i++) {
         reqView[i] = requestString.charCodeAt(i);
       }
 
+      var amountReceived = 0;
+      var timeoutId = setTimeout(function() {
+        console.warn('jquery only got: ' + amountReceived + ' of 84320 bytes');
+      }, 7000);
+
       var recvListener = function(info) {
         expect(info.socketId).toEqual(clientSockets[0].socketId);
-        expect(info.data.byteLength).toBeGreaterThan(0);
-        chrome.sockets.tcp.onReceive.removeListener(recvListener);
-        done();
+        amountReceived += info.data.byteLength;
+        // 84320 is size of body, but will be more from headers.
+        if (amountReceived > 84320) {
+          clearTimeout(timeoutId);
+          done();
+        }
       };
       chrome.sockets.tcp.onReceive.addListener(recvListener);
 
@@ -745,7 +787,7 @@ exports.defineAutoTests = function() {
           });
         });
       });
-    });
+    }, 7000);
 
     it('TCP secure get https website three times', function(done) {
       var hostname = 'httpbin.org';
