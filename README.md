@@ -12,6 +12,11 @@ The API reference is [here](https://developer.chrome.com/apps/sockets_tcp).
 
 # Release Notes
 
+## 1.3.4 (May 29, 2015)
+* Fix writes being silently truncated when sending large ArrayBuffers
+* Fix a case of busy-waiting (yikes!)
+* Increase socket read buffer size from 4k -> 32k to match write buffer size
+
 ## 1.3.3 (April 30, 2015)
 - Renamed plugin to pubilsh to NPM
 
