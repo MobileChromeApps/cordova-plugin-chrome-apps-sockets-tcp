@@ -673,7 +673,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     void setDefaultProperties() throws IOException {
       paused = false;
       persistent = false;
-      bufferSize = 4096;
+      bufferSize = 32768;
       name = "";
       resetPipeToFileProperties();
     }
