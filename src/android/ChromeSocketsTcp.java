@@ -5,6 +5,8 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.NotYetConnectedException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -1114,8 +1116,9 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       try {
         bytesRead = channel.read(receiveDataBuffer);
 
-        if (bytesRead < 0)
-          throw new IOException("Socket closed by remote peer");
+        if (bytesRead < 0) {
+          throw new ClosedChannelException("Socket closed by remote peer");
+        }
         if (bytesRead == 0) {
           Log.w(LOG_TAG, "no data read from socket");
           return 0;
@@ -1134,7 +1137,13 @@ public class ChromeSocketsTcp extends CordovaPlugin {
           receiveDataBuffer.clear();
         }
       } catch (IOException e) {
-        JSONObject info = buildErrorInfo(-2, e.getMessage());
+        int code =  -2;
+        if (e instanceof ClosedChannelException) {
+          code = -100;
+        } else if (e instanceof NotYetConnectedException) {
+          code = -15;
+        }
+        JSONObject info = buildErrorInfo(code, e.getMessage());
         info.put("socketId", socketId);
         sendReceiveEvent(new PluginResult(Status.ERROR, info));
         return -1;
