@@ -10,6 +10,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -818,6 +819,9 @@ public class ChromeSocketsTcp extends CordovaPlugin {
      * @return whether further handshake need to be performed.
      */
     boolean performNextHandshakeStep() throws IOException, JSONException {
+      if (sslEngine == null) {
+        return false;
+      }
       switch(sslEngine.getHandshakeStatus()) {
         case FINISHED:
           return false;
@@ -833,7 +837,11 @@ public class ChromeSocketsTcp extends CordovaPlugin {
             handshakeFailed();
             return false;
           }
-          tryUnwrapReceiveData();
+          try {
+            tryUnwrapReceiveData();
+          } catch (SSLException e) {
+            handshakeFailed();
+          }
           return true;
         case NEED_WRAP:
           ByteBuffer wrapData = ByteBuffer.allocate(sslEngine.getSession().getPacketBufferSize());
@@ -936,6 +944,44 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       sslNetBuffer = newBuffer;
     }
 
+    // Parses an android- or chrome-format SSL/TLS version code, and returns the
+    // 16-bit version number used by the TLS protocol.
+    int parseTlsVersion(String versionCode, boolean android) {
+      if (versionCode.isEmpty()) {
+        return 0;
+      }
+      try {
+        String sslPrefix = android ? "SSLv" : "ssl";
+        String tlsPrefix = android ? "TLSv" : "tls";
+        boolean isTls = versionCode.startsWith(tlsPrefix);
+        String prefix = isTls ? tlsPrefix : sslPrefix;
+        if (!versionCode.startsWith(prefix)) {
+          throw new NumberFormatException("Wrong prefix");
+        }
+        String versionNumber = versionCode.substring(prefix.length());
+        String[] parts = versionNumber.split("\\.");
+        int major = Integer.parseInt(parts[0]);
+        int minor = 0;
+        if (parts.length >= 2) {
+          minor = Integer.parseInt(parts[1]);
+        }
+        if (major <= 0 || minor < 0) {
+          throw new NumberFormatException("Version must be positive");
+        }
+        if (major > 255 || minor > 255) {
+          throw new NumberFormatException("Version must fit in one byte");
+        }
+        if (isTls) {
+          // TLS 1.0 is actually SSL version 3.1, 1.1 is 3.2, etc.
+          major += 2;
+          minor += 1;
+        }
+        return major * 256 + minor;  // SSL/TLS represents the version as a 16-bit code of this form
+      } catch (NumberFormatException e) {
+        return 0;
+      }
+    }
+
     void setUpSSLEngine() throws JSONException {
       try {
         sslEngine = SSLContext.getDefault().createSSLEngine();
@@ -944,14 +990,19 @@ public class ChromeSocketsTcp extends CordovaPlugin {
         sslNetBuffer = ByteBuffer.allocate(sslEngine.getSession().getPacketBufferSize());
         sslPeerAppBuffer = ByteBuffer.allocate(sslEngine.getSession().getApplicationBufferSize());
 
-        // TODO: TLS1.1 and TLS1.2 is supported and enabled by default for API 20+.
-        if (sslMinVersion.startsWith("tls")) {
-          sslEngine.setEnabledProtocols(new String[] {"TLSv1"});
+        int parsedMinVersion = parseTlsVersion(sslMinVersion, false);
+        int parsedMaxVersion = parseTlsVersion(sslMaxVersion, false);
+        ArrayList<String> enabledProtocols = new ArrayList<String>();
+        for (String version: sslEngine.getSupportedProtocols()) {
+          int parsedVersion = parseTlsVersion(version, true);
+          if ((parsedMinVersion == 0 || parsedMinVersion <= parsedVersion) &&
+              (parsedMaxVersion == 0 || parsedMaxVersion >= parsedVersion)) {
+            enabledProtocols.add(version);
+          }
         }
 
-        if (sslMaxVersion.startsWith("ssl")) {
-          sslEngine.setEnabledProtocols(new String[] {"SSLv3"});
-        }
+        String[] enabledProtocolsArray = new String[enabledProtocols.size()];
+        sslEngine.setEnabledProtocols(enabledProtocols.toArray(enabledProtocolsArray));
 
         sslEngine.beginHandshake();
       } catch (SSLException e) {
