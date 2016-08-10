@@ -827,5 +827,68 @@ exports.defineAutoTests = function() {
         });
       });
     }, 5000);
+
+    it('TLS version control', function(done) {
+      var hostname = 'www.howsmyssl.com';
+      var port = 443;
+      var requestString = 'GET /a/check HTTP/1.1\r\nHOST: ' + hostname + '\r\n\r\n';
+      var request = new ArrayBuffer(requestString.length);
+      var reqView = new Uint8Array(request);
+      for (var i = 0, strLen = requestString.length; i < strLen; i++) {
+        reqView[i] = requestString.charCodeAt(i);
+      }
+
+      var decoder = new TextDecoder();
+      var response = '';
+
+      var checkResponse = function() {
+        var parts = response.split('\r\n\r\n');
+        if (parts.length < 2) {
+          return;  // We haven't hit the end of the headers yet.
+        }
+        try {
+          var a = JSON.parse(parts[1]);
+          expect(a.tls_version).toEqual('TLS 1.2');
+          done();
+        } catch (e) {
+          // Probably the response is just incomplete.
+        }
+      };
+
+      var recvListener = function(info) {
+        expect(info.socketId).toEqual(clientSockets[0].socketId);
+        response += decoder.decode(info.data);
+        checkResponse();
+      };
+      chrome.sockets.tcp.onReceive.addListener(recvListener);
+
+      chrome.sockets.tcp.setPaused(clientSockets[0].socketId, true, function() {
+        chrome.sockets.tcp.connect(clientSockets[0].socketId, hostname, port, function(connectResult) {
+          expect(connectResult).toEqual(0);
+          chrome.sockets.tcp.secure(clientSockets[0].socketId, {tlsVersion: {min: 'tls1.2', max: 'tls1.2'}}, function(secureResult) {
+            expect(secureResult).toEqual(0);
+            chrome.sockets.tcp.send(clientSockets[0].socketId, request, function(sendResult) {
+              expect(sendResult.resultCode).toEqual(0);
+              expect(sendResult.bytesSent).toEqual(requestString.length);
+              chrome.sockets.tcp.setPaused(clientSockets[0].socketId, false);
+            });
+          });
+        });
+      });
+    }, 7000);
+
+    it('TLS failure detection', function(done) {
+      var hostname = 'google.com';
+      var port = 80;  // Not a TLS server!
+      chrome.sockets.tcp.setPaused(clientSockets[0].socketId, true, function() {
+        chrome.sockets.tcp.connect(clientSockets[0].socketId, hostname, port, function(connectResult) {
+          expect(connectResult).toEqual(0);
+          chrome.sockets.tcp.secure(clientSockets[0].socketId, function(secureResult) {
+            expect(secureResult).not.toEqual(0);
+            done();
+          });
+        });
+      });
+    }, 7000);
   });
 };
