@@ -12,6 +12,9 @@ The API reference is [here](https://developer.chrome.com/apps/sockets_tcp).
 
 # Release Notes
 
+## 1.3.5 (Aug 10, 2016)
+* Better TLS handling in Android implementation
+
 ## 1.3.4 (May 29, 2015)
 * Fix writes being silently truncated when sending large ArrayBuffers
 * Fix a case of busy-waiting (yikes!)
