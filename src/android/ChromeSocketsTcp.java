@@ -224,27 +224,31 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
   private void connect(CordovaArgs args, final CallbackContext callbackContext)
       throws JSONException {
-    int socketId = args.getInt(0);
-    String peerAddress = args.getString(1);
-    int peerPort = args.getInt(2);
+    final int socketId = args.getInt(0);
+    final String peerAddress = args.getString(1);
+    final int peerPort = args.getInt(2);
 
-    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    final TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    
+    cordova.getThreadPool().execute(new Runnable() {
+      public void run() {
+        if (socket == null) {
+          Log.e(LOG_TAG, "No socket with socketId " + socketId);
+          callbackContext.error(buildErrorInfo(-4, "Invalid Argument"));
+          return;
+        }
 
-    if (socket == null) {
-      Log.e(LOG_TAG, "No socket with socketId " + socketId);
-      callbackContext.error(buildErrorInfo(-4, "Invalid Argument"));
-      return;
-    }
-
-    try {
-      if (socket.connect(peerAddress, peerPort, callbackContext)) {
-        addSelectorMessage(socket, SelectorMessageType.SO_CONNECTED, null);
-      } else {
-        addSelectorMessage(socket, SelectorMessageType.SO_CONNECT, null);
+        try {
+          if (socket.connect(peerAddress, peerPort, callbackContext)) {
+            addSelectorMessage(socket, SelectorMessageType.SO_CONNECTED, null);
+          } else {
+            addSelectorMessage(socket, SelectorMessageType.SO_CONNECT, null);
+          }
+        } catch (IOException e) {
+          callbackContext.error(buildErrorInfo(-104, e.getMessage()));
+        }
       }
-    } catch (IOException e) {
-      callbackContext.error(buildErrorInfo(-104, e.getMessage()));
-    }
+    });
   }
 
   private void disconnect(CordovaArgs args, final CallbackContext callbackContext)
