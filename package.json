@@ -1,6 +1,6 @@
 {
   "name": "cordova-plugin-chrome-apps-sockets-tcp",
-  "version": "1.3.7-dev",
+  "version": "1.3.7",
   "description": "This plugin provides TCP client sockets for Android and iOS.",
   "cordova": {
     "id": "cordova-plugin-chrome-apps-sockets-tcp",
