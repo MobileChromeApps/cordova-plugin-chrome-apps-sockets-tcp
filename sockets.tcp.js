@@ -161,7 +161,9 @@ function registerReceiveEvents() {
             // readyToRead signals the plugin to read the next tcp packet. exec
             // it after fire() will allow all API calls in the onReceive
             // listener exec before next read, such as, pause the socket.
-            exec(null, null, 'ChromeSocketsTcp', 'readyToRead', []);
+            var args = [];
+            if('socketId' in data) args = [data.socketId];
+            exec(null, null, 'ChromeSocketsTcp', 'readyToRead', args);
         }
     };
 
