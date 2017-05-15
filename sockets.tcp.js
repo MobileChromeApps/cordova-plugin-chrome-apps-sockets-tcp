@@ -196,10 +196,7 @@ function registerReceiveEvents() {
     }
 
     var fail = function(info) {
-        var error = function() {
-            exports.onReceiveError.fire(info);
-        };
-        error();
+        exports.onReceiveError.fire(info);
     };
 
     exec(win, fail, 'ChromeSocketsTcp', 'registerReceiveEvents', []);
