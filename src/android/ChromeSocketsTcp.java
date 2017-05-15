@@ -40,13 +40,13 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
   private static final String LOG_TAG = "ChromeSocketsTcp";
 
-  private Map<Integer, org.chromium.ChromeSocketsTcp.TcpSocket> sockets = new ConcurrentHashMap<Integer, org.chromium.ChromeSocketsTcp.TcpSocket>();
-  private BlockingQueue<org.chromium.ChromeSocketsTcp.SelectorMessage> selectorMessages =
-          new LinkedBlockingQueue<org.chromium.ChromeSocketsTcp.SelectorMessage>();
+  private Map<Integer, TcpSocket> sockets = new ConcurrentHashMap<Integer, TcpSocket>();
+  private BlockingQueue<SelectorMessage> selectorMessages =
+          new LinkedBlockingQueue<SelectorMessage>();
   private int nextSocket = 1;
   private CallbackContext recvContext;
   private Selector selector;
-  private org.chromium.ChromeSocketsTcp.SelectorThread selectorThread;
+  private SelectorThread selectorThread;
 
   @Override
   public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext)
@@ -122,10 +122,10 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
   public int registerAcceptedSocketChannel(SocketChannel socketChannel)
           throws IOException {
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = new org.chromium.ChromeSocketsTcp.TcpSocket(nextSocket++, socketChannel);
+    TcpSocket socket = new TcpSocket(nextSocket++, socketChannel);
     sockets.put(Integer.valueOf(socket.getSocketId()), socket);
 
-    addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_ACCEPTED, null);
+    addSelectorMessage(socket, SelectorMessageType.SO_ACCEPTED, null);
 
     return socket.getSocketId();
   }
@@ -135,7 +135,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     JSONObject properties = args.getJSONObject(0);
 
     try {
-      org.chromium.ChromeSocketsTcp.TcpSocket socket = new org.chromium.ChromeSocketsTcp.TcpSocket(nextSocket++, properties);
+      TcpSocket socket = new TcpSocket(nextSocket++, properties);
       sockets.put(Integer.valueOf(socket.getSocketId()), socket);
       callbackContext.success(socket.getSocketId());
     } catch (IOException e) {
@@ -146,7 +146,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
           throws JSONException {
     int socketId = args.getInt(0);
     JSONObject properties = args.getJSONObject(1);
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     if (socket == null) {
       Log.e(LOG_TAG, "No socket with socketId " + socketId);
@@ -165,7 +165,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     int socketId = args.getInt(0);
     boolean paused = args.getBoolean(1);
 
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     if (socket == null) {
       Log.e(LOG_TAG, "No socket with socketId " + socketId);
@@ -178,7 +178,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       callbackContext.success();
     } else {
       // All interests need to be modified in selector thread.
-      addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_ADD_READ_INTEREST, callbackContext);
+      addSelectorMessage(socket, SelectorMessageType.SO_ADD_READ_INTEREST, callbackContext);
     }
   }
 
@@ -187,7 +187,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     int socketId = args.getInt(0);
     boolean enable = args.getBoolean(1);
 
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     if (socket == null) {
       Log.e(LOG_TAG, "No socket with socketId " + socketId);
@@ -208,7 +208,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     int socketId = args.getInt(0);
     boolean noDelay = args.getBoolean(1);
 
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     if (socket == null) {
       Log.e(LOG_TAG, "No socket with socketId " + socketId);
@@ -230,7 +230,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     final String peerAddress = args.getString(1);
     final int peerPort = args.getInt(2);
 
-    final org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    final TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     cordova.getThreadPool().execute(new Runnable() {
       public void run() {
@@ -242,9 +242,9 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
         try {
           if (socket.connect(peerAddress, peerPort, callbackContext)) {
-            addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_CONNECTED, null);
+            addSelectorMessage(socket, SelectorMessageType.SO_CONNECTED, null);
           } else {
-            addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_CONNECT, null);
+            addSelectorMessage(socket, SelectorMessageType.SO_CONNECT, null);
           }
         } catch (IOException e) {
           callbackContext.error(buildErrorInfo(-104, e.getMessage()));
@@ -257,14 +257,14 @@ public class ChromeSocketsTcp extends CordovaPlugin {
           throws JSONException {
     int socketId = args.getInt(0);
 
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     if (socket == null) {
       Log.e(LOG_TAG, "No socket with socketId " + socketId);
       return;
     }
 
-    addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_DISCONNECTED, callbackContext);
+    addSelectorMessage(socket, SelectorMessageType.SO_DISCONNECTED, callbackContext);
   }
 
   private void secure(CordovaArgs args, final CallbackContext callbackContext)
@@ -272,7 +272,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     int socketId = args.getInt(0);
     JSONObject options = args.getJSONObject(1);
 
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     if (socket == null) {
       Log.e(LOG_TAG, "No socket with socketId " + socketId);
@@ -301,7 +301,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     }
 
     socket.setSecureCallbackAndOptions(minVersion, maxVersion, callbackContext);
-    addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SSL_INIT_HANDSHAKE, null);
+    addSelectorMessage(socket, SelectorMessageType.SSL_INIT_HANDSHAKE, null);
   }
 
   private void send(CordovaArgs args, final CallbackContext callbackContext)
@@ -309,7 +309,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     int socketId = args.getInt(0);
     byte[] data = args.getArrayBuffer(1);
 
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     if (socket == null) {
       Log.e(LOG_TAG, "No socket with socketId " + socketId);
@@ -326,12 +326,12 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     socket.addSendPacket(data, callbackContext);
 
     // All interests need to be modified in selector thread.
-    addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_ADD_WRITE_INTEREST, null);
+    addSelectorMessage(socket, SelectorMessageType.SO_ADD_WRITE_INTEREST, null);
   }
 
   private void closeAllSockets() {
-    for (org.chromium.ChromeSocketsTcp.TcpSocket socket: sockets.values()) {
-      addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_CLOSE, null);
+    for (TcpSocket socket: sockets.values()) {
+      addSelectorMessage(socket, SelectorMessageType.SO_CLOSE, null);
     }
   }
 
@@ -339,21 +339,21 @@ public class ChromeSocketsTcp extends CordovaPlugin {
           throws JSONException {
     int socketId = args.getInt(0);
 
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     if (socket == null) {
       Log.e(LOG_TAG, "No socket with socketId " + socketId);
       return;
     }
 
-    addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_CLOSE, callbackContext);
+    addSelectorMessage(socket, SelectorMessageType.SO_CLOSE, callbackContext);
   }
 
   private void getInfo(CordovaArgs args, final CallbackContext callbackContext)
           throws JSONException {
     int socketId = args.getInt(0);
 
-    org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     if (socket == null) {
       Log.e(LOG_TAG, "No socket with socketId " + socketId);
@@ -367,7 +367,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
     JSONArray results = new JSONArray();
 
-    for (org.chromium.ChromeSocketsTcp.TcpSocket socket: sockets.values()) {
+    for (TcpSocket socket: sockets.values()) {
       results.put(socket.getInfo());
     }
 
@@ -380,7 +380,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     final int socketId = args.getInt(0);
     final JSONObject options = args.getJSONObject(1);
 
-    final org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    final TcpSocket socket = sockets.get(Integer.valueOf(socketId));
 
     // Use a background thread because setProperties may perform IO operations.
     cordova.getThreadPool().execute(new Runnable() {
@@ -413,22 +413,22 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
   private void readyToRead(CordovaArgs args) throws JSONException {
     int socketId = args.getInt(0);
-    final org.chromium.ChromeSocketsTcp.TcpSocket socket = sockets.get(Integer.valueOf(socketId));
+    final TcpSocket socket = sockets.get(Integer.valueOf(socketId));
     if (socket != null) {
-      addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_ADD_READ_INTEREST, null);
+      addSelectorMessage(socket, SelectorMessageType.SO_ADD_READ_INTEREST, null);
     }
   }
 
   private void startSelectorThread() {
     if (selectorThread != null) return;
-    selectorThread = new org.chromium.ChromeSocketsTcp.SelectorThread(selectorMessages, sockets);
+    selectorThread = new SelectorThread(selectorMessages, sockets);
     selectorThread.start();
   }
 
   private void stopSelectorThread() {
     if (selectorThread == null) return;
 
-    addSelectorMessage(null, org.chromium.ChromeSocketsTcp.SelectorMessageType.T_STOP, null);
+    addSelectorMessage(null, SelectorMessageType.T_STOP, null);
     try {
       selectorThread.join();
       selectorThread = null;
@@ -437,9 +437,9 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void addSelectorMessage(
-          org.chromium.ChromeSocketsTcp.TcpSocket socket, org.chromium.ChromeSocketsTcp.SelectorMessageType type, CallbackContext callbackContext) {
+          TcpSocket socket, SelectorMessageType type, CallbackContext callbackContext) {
     try {
-      selectorMessages.put(new org.chromium.ChromeSocketsTcp.SelectorMessage(
+      selectorMessages.put(new SelectorMessage(
               socket, type, callbackContext));
       if (selector != null)
         selector.wakeup();
@@ -460,12 +460,12 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private class SelectorMessage {
-    final org.chromium.ChromeSocketsTcp.TcpSocket socket;
-    final org.chromium.ChromeSocketsTcp.SelectorMessageType type;
+    final TcpSocket socket;
+    final SelectorMessageType type;
     final CallbackContext callbackContext;
 
     SelectorMessage(
-            org.chromium.ChromeSocketsTcp.TcpSocket socket, org.chromium.ChromeSocketsTcp.SelectorMessageType type, CallbackContext callbackContext) {
+            TcpSocket socket, SelectorMessageType type, CallbackContext callbackContext) {
       this.socket = socket;
       this.type = type;
       this.callbackContext = callbackContext;
@@ -473,13 +473,13 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private class SelectorThread extends Thread {
-    private BlockingQueue<org.chromium.ChromeSocketsTcp.SelectorMessage> selectorMessages;
-    private Map<Integer, org.chromium.ChromeSocketsTcp.TcpSocket> sockets;
+    private BlockingQueue<SelectorMessage> selectorMessages;
+    private Map<Integer, TcpSocket> sockets;
     private boolean running = true;
 
     SelectorThread(
-            BlockingQueue<org.chromium.ChromeSocketsTcp.SelectorMessage> selectorMessages,
-            Map<Integer, org.chromium.ChromeSocketsTcp.TcpSocket> sockets) {
+            BlockingQueue<SelectorMessage> selectorMessages,
+            Map<Integer, TcpSocket> sockets) {
       this.selectorMessages = selectorMessages;
       this.sockets = sockets;
     }
@@ -487,7 +487,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     private void processPendingMessages() {
 
       while (selectorMessages.peek() != null) {
-        org.chromium.ChromeSocketsTcp.SelectorMessage msg = null;
+        SelectorMessage msg = null;
         try {
           msg = selectorMessages.take();
           switch (msg.type) {
@@ -572,14 +572,14 @@ public class ChromeSocketsTcp extends CordovaPlugin {
             continue;
           }
 
-          org.chromium.ChromeSocketsTcp.TcpSocket socket = (org.chromium.ChromeSocketsTcp.TcpSocket)key.attachment();
+          TcpSocket socket = (TcpSocket)key.attachment();
 
           if (key.isReadable()) {
 
             try {
               int amountRead = socket.read();
               if (amountRead < 0) {
-                addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_DISCONNECTED, null);
+                addSelectorMessage(socket, SelectorMessageType.SO_DISCONNECTED, null);
               }
             } catch (JSONException e) {
             }
@@ -591,7 +591,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
           if (key.isConnectable()) {
             if (socket.finishConnect()) {
-              addSelectorMessage(socket, org.chromium.ChromeSocketsTcp.SelectorMessageType.SO_CONNECTED, null);
+              addSelectorMessage(socket, SelectorMessageType.SO_CONNECTED, null);
             }
           }
         } // while next
@@ -617,7 +617,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     private ByteBuffer sslPeerAppBuffer;
     private ByteBuffer sslNetBuffer;
 
-    private BlockingQueue<org.chromium.ChromeSocketsTcp.TcpSendPacket> sendPackets = new LinkedBlockingQueue<org.chromium.ChromeSocketsTcp.TcpSendPacket>();
+    private BlockingQueue<TcpSendPacket> sendPackets = new LinkedBlockingQueue<TcpSendPacket>();
     private SelectionKey key;
 
     private boolean paused;
@@ -1035,7 +1035,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
     void addSendPacket(byte[] data, CallbackContext callbackContext) {
       ByteBuffer appData = ByteBuffer.wrap(data);
-      org.chromium.ChromeSocketsTcp.TcpSendPacket sendPacket = new org.chromium.ChromeSocketsTcp.TcpSendPacket(appData, callbackContext);
+      TcpSendPacket sendPacket = new TcpSendPacket(appData, callbackContext);
       try {
         sendPackets.put(sendPacket);
       } catch (InterruptedException e) {
@@ -1044,7 +1044,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
     // This method can be only called by selector thread.
     void dequeueSend() {
-      org.chromium.ChromeSocketsTcp.TcpSendPacket sendPacket = sendPackets.peek();
+      TcpSendPacket sendPacket = sendPackets.peek();
       if (sendPacket == null) {
         removeInterestSet(SelectionKey.OP_WRITE);
         return;
