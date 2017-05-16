@@ -4,7 +4,6 @@
 var Event = require('cordova-plugin-chrome-apps-common.events');
 var platform = cordova.require('cordova/platform');
 var exec = cordova.require('cordova/exec');
-var callbackWithError = require('cordova-plugin-chrome-apps-common.errors').callbackWithError;
 
 exports.create = function(properties, callback) {
     if (typeof properties == 'function') {
@@ -38,7 +37,7 @@ exports.setKeepAlive = function(socketId, enabled, delay, callback) {
             callback(0);
         };
         var fail = callback && function(error) {
-            callbackWithError(error.message, callback, error.resultCode);
+            exports.onReceiveError.fire(error);
         };
         exec(win, fail, 'ChromeSocketsTcp', 'setKeepAlive', [socketId, enabled, delay]);
     } else {
@@ -52,7 +51,7 @@ exports.setNoDelay = function(socketId, noDelay, callback) {
             callback(0);
         };
         var fail = callback && function(error) {
-            callbackWithError(error.message, callback, error.resultCode);
+            exports.onReceiveError.fire(error);
         };
         exec(win, fail, 'ChromeSocketsTcp', 'setNoDelay', [socketId, noDelay]);
     } else {
@@ -65,7 +64,7 @@ exports.connect = function(socketId, peerAddress, peerPort, callback) {
         callback(0);
     };
     var fail = callback && function(error) {
-        callbackWithError(error.message, callback, error.resultCode);
+        exports.onReceiveError.fire(error);
     };
     exec(win, fail, 'ChromeSocketsTcp', 'connect', [socketId, peerAddress, peerPort]);
 };
@@ -83,7 +82,7 @@ exports.secure = function(socketId, options, callback) {
         callback(0);
     };
     var fail = callback && function(error) {
-        callbackWithError(error.message, callback, error.resultCode);
+        exports.onReceiveError.fire(error);
     };
     exec(win, fail, 'ChromeSocketsTcp', 'secure', [socketId, options]);
 };
@@ -105,7 +104,7 @@ exports.send = function(socketId, data, callback) {
             bytesSent: 0,
             resultCode: error.resultCode
         };
-        callbackWithError(error.message, callback, sendInfo);
+         exports.onReceiveError.fire(error, sendInfo);
     };
     if (data.byteLength == 0) {
       win(0);
@@ -197,10 +196,7 @@ function registerReceiveEvents() {
     }
 
     var fail = function(info) {
-        var error = function() {
-            exports.onReceiveError.fire(info);
-        };
-        callbackWithError(info.message, error);
+        exports.onReceiveError.fire(info);
     };
 
     exec(win, fail, 'ChromeSocketsTcp', 'registerReceiveEvents', []);
