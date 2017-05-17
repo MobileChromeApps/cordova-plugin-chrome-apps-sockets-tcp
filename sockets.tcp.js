@@ -3,7 +3,16 @@
 // found in the LICENSE file.
 var Event = require('cordova-plugin-chrome-apps-common.events');
 var platform = cordova.require('cordova/platform');
-var exec = cordova.require('cordova/exec');
+var exec = cordova.require('cordova/exec'),
+	ANDROID_SOCKET_ERROR_CODES = {
+        	SOCKET_CLOSED_BY_SERVER: -100,
+        	CONNECTION_TIMED_OUT: -118
+    },
+    IOS_SOCKET_ERROR_CODES = {
+        	SOCKET_CLOSED_BY_SERVER: 7,
+        	CONNECTION_TIMED_OUT: 57
+    },
+    HANDLED_ERROR_CODES = platform.id == 'android' ? ANDROID_SOCKET_ERROR_CODES : IOS_SOCKET_ERROR_CODES;
 
 exports.create = function(properties, callback) {
     if (typeof properties == 'function') {
@@ -196,6 +205,7 @@ function registerReceiveEvents() {
     }
 
     var fail = function(info) {
+	debugger
         exports.onReceiveError.fire(info);
     };
 
