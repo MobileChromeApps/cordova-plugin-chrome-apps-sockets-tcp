@@ -12,7 +12,11 @@ var exec = cordova.require('cordova/exec'),
         	SOCKET_CLOSED_BY_SERVER: 7,
         	CONNECTION_TIMED_OUT: 57
     },
-    HANDLED_ERROR_CODES = platform.id == 'android' ? ANDROID_SOCKET_ERROR_CODES : IOS_SOCKET_ERROR_CODES;
+ 	STANDARDISED_ERROR_CODES = {
+        	SOCKET_CLOSED_BY_SERVER: 1,
+        	CONNECTION_TIMED_OUT: 2
+    },
+    NATIVE_ERROR_CODES = platform.id == 'android' ? ANDROID_SOCKET_ERROR_CODES : IOS_SOCKET_ERROR_CODES;
 
 exports.create = function(properties, callback) {
     if (typeof properties == 'function') {
@@ -204,8 +208,17 @@ function registerReceiveEvents() {
         })();
     }
 
+	function standardiseErrorCode(errorCode) {
+		var errorType = Object.keys(NATIVE_ERROR_CODES).find(function (type) {
+			return (NATIVE_ERROR_CODES[type] === info.resultCode);
+		});
+		
+		return STANDARDISED_ERROR_CODES[errorType];
+	}
+	
     var fail = function(info) {
-	debugger
+		info.resultCode = standardizeErrorCode(info.resultCode)
+		
         exports.onReceiveError.fire(info);
     };
 
