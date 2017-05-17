@@ -217,7 +217,7 @@ function registerReceiveEvents() {
 	}
 	
     var fail = function(info) {
-		info.resultCode = standardizeErrorCode(info.resultCode)
+		info.resultCode = standardiseErrorCode(info.resultCode)
 		
         exports.onReceiveError.fire(info);
     };
