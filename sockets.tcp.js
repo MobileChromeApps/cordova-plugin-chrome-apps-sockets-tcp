@@ -16,7 +16,7 @@ var exec = cordova.require('cordova/exec'),
 	    STANDARDISED: 2
 	  }
 	},
-    OS = platform.id == 'android' ? ANDROID : IOS;
+    OS = platform.id == 'android' ? 'ANDROID' : 'IOS';
 
 exports.create = function(properties, callback) {
     if (typeof properties == 'function') {
