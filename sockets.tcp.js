@@ -209,14 +209,14 @@ function registerReceiveEvents() {
     }
 
     function standardiseErrorCode(errorCode) {
-        var errorCode;
+        var standardErrorCode;
 
         Object.keys(ERROR_CODES).forEach(function (type) {
             if (ERROR_CODES[type][OS] === errorCode) {
-                errorCode = ERROR_CODES[type].STANDARDISED
+                standardErrorCode = ERROR_CODES[type].STANDARDISED
             }
         })
-        return errorCode;
+        return standardErrorCode;
     }
 
     var fail = function (info) {
