@@ -209,8 +209,7 @@ function registerReceiveEvents() {
     }
 
     function standardiseErrorCode(errorCode) {
-        var standardErrorCode,
-            matchedError = Object.keys(ERROR_CODES).find(function (type) {
+        var matchedError = Object.keys(ERROR_CODES).find(function (type) {
                 return ERROR_CODES[type][OS] === errorCode;
             });
 
