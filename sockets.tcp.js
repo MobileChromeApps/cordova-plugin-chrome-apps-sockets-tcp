@@ -4,19 +4,19 @@
 var Event = require('cordova-plugin-chrome-apps-common.events');
 var platform = cordova.require('cordova/platform');
 var exec = cordova.require('cordova/exec'),
-	ANDROID_SOCKET_ERROR_CODES = {
-        	SOCKET_CLOSED_BY_SERVER: -100,
-        	CONNECTION_TIMED_OUT: -118
-    },
-    IOS_SOCKET_ERROR_CODES = {
-        	SOCKET_CLOSED_BY_SERVER: 7,
-        	CONNECTION_TIMED_OUT: 57
-    },
- 	STANDARDISED_ERROR_CODES = {
-        	SOCKET_CLOSED_BY_SERVER: 1,
-        	CONNECTION_TIMED_OUT: 2
-    },
-    NATIVE_ERROR_CODES = platform.id == 'android' ? ANDROID_SOCKET_ERROR_CODES : IOS_SOCKET_ERROR_CODES;
+	ERROR_CODES = {
+	  SOCKET_CLOSED_BY_SERVER: {
+	    ANDROID: -100,
+	    IOS: 7,
+	    STANDARDISED: 1
+	  },
+	  CONNECTION_TIMED_OUT: {
+	    ANDROID: -118,
+	    IOS: 57,
+	    STANDARDISED: 2
+	  }
+	},
+    OS = platform.id == 'android' ? ANDROID : IOS;
 
 exports.create = function(properties, callback) {
     if (typeof properties == 'function') {
@@ -209,11 +209,14 @@ function registerReceiveEvents() {
     }
 
 	function standardiseErrorCode(errorCode) {
-		var errorType = Object.keys(NATIVE_ERROR_CODES).find(function (type) {
-			return (NATIVE_ERROR_CODES[type] === info.resultCode);
-		});
+		var errorCode;
 		
-		return STANDARDISED_ERROR_CODES[errorType];
+		Object.keys(ERROR_CODES).forEach(function(type){
+			if (ERROR_CODES[type][OS] === errorCode) {
+				errorCode = ERROR_CODES[type].STANDARDISED
+			}
+		})
+		return errorCode;
 	}
 	
     var fail = function(info) {
