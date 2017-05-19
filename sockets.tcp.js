@@ -3,7 +3,20 @@
 // found in the LICENSE file.
 var Event = require('cordova-plugin-chrome-apps-common.events');
 var platform = cordova.require('cordova/platform');
-var exec = cordova.require('cordova/exec');
+var exec = cordova.require('cordova/exec'),
+    ERROR_CODES = {
+        SOCKET_CLOSED_BY_SERVER: {
+            ANDROID: -100,
+            IOS: 7,
+            STANDARDISED: 1
+        },
+        CONNECTION_TIMED_OUT: {
+            ANDROID: -118,
+            IOS: 57,
+            STANDARDISED: 2
+        }
+    },
+    OS = platform.id === 'android' ? 'ANDROID' : 'IOS';
 
 exports.create = function(properties, callback) {
     if (typeof properties == 'function') {
@@ -195,7 +208,17 @@ function registerReceiveEvents() {
         })();
     }
 
-    var fail = function(info) {
+    function getStandardiseErrorCode(errorCode) {
+        var matchedError = Object.keys(ERROR_CODES).find(function (type) {
+                return ERROR_CODES[type][OS] === errorCode;
+            });
+
+        return matchedError ? ERROR_CODES[matchedError].STANDARDISED : errorCode;
+    }
+
+    var fail = function (info) {
+        info.resultCode = getStandardiseErrorCode(info.resultCode);
+
         exports.onReceiveError.fire(info);
     };
 
