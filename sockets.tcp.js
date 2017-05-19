@@ -16,7 +16,7 @@ var exec = cordova.require('cordova/exec'),
             STANDARDISED: 2
         }
     },
-    OS = platform.id == 'android' ? 'ANDROID' : 'IOS';
+    OS = platform.id === 'android' ? 'ANDROID' : 'IOS';
 
 exports.create = function(properties, callback) {
     if (typeof properties == 'function') {
@@ -208,7 +208,7 @@ function registerReceiveEvents() {
         })();
     }
 
-    function standardiseErrorCode(errorCode) {
+    function getStandardiseErrorCode(errorCode) {
         var matchedError = Object.keys(ERROR_CODES).find(function (type) {
                 return ERROR_CODES[type][OS] === errorCode;
             });
@@ -217,7 +217,7 @@ function registerReceiveEvents() {
     }
 
     var fail = function (info) {
-        info.resultCode = standardiseErrorCode(info.resultCode)
+        info.resultCode = getStandardiseErrorCode(info.resultCode);
 
         exports.onReceiveError.fire(info);
     };
