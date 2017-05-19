@@ -213,7 +213,7 @@ function registerReceiveEvents() {
                 return ERROR_CODES[type][OS] === errorCode;
             });
 
-        return ERROR_CODES[matchedError].STANDARDISED;
+        return matchedError ? ERROR_CODES[matchedError].STANDARDISED : errorCode;
     }
 
     var fail = function (info) {
