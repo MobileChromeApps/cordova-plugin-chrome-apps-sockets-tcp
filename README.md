@@ -12,6 +12,9 @@ The API reference is [here](https://developer.chrome.com/apps/sockets_tcp).
 
 # Release Notes
 
+## 1.3.7 (Jan 31, 2017)
+* Fix disconnect() sometimes not disconnecting on iOS
+
 ## 1.3.6 (Aug 12, 2016)
 * Fix connect() being run on UI thread (Android)
 
