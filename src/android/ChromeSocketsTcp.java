@@ -32,7 +32,7 @@ import org.apache.cordova.PluginResult.Status;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
+import android.util.Base64;
 import android.net.Uri;
 import android.util.Log;
 
@@ -1213,8 +1213,8 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       if (recvBytes != null) {
         JSONObject info = new JSONObject();
         info.put("socketId", socketId);
+        info.put("data", Base64.encodeToString(recvBytes, Base64.DEFAULT));
         sendReceiveEvent(new PluginResult(Status.OK, info));
-        sendReceiveEvent(new PluginResult(Status.OK, recvBytes));
       }
     }
   }
