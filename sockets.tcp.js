@@ -146,7 +146,6 @@ exports.onReceive = new Event('onReceive');
 exports.onReceiveError = new Event('onReceiveError');
 
 function registerReceiveEvents() {
-
     var win = function(info, data) {
         if (data) { // Binary data has to be a top level argument.
             info.data = data;
@@ -205,5 +204,7 @@ function registerReceiveEvents() {
 
     exec(win, fail, 'ChromeSocketsTcp', 'registerReceiveEvents', []);
 }
+
+module.exports = exports;
 
 require('cordova-plugin-chrome-apps-common.helpers').runAtStartUp(registerReceiveEvents);
