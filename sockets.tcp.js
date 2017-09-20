@@ -158,7 +158,6 @@ exports.onReceive = new Event('onReceive');
 exports.onReceiveError = new Event('onReceiveError');
 
 function registerReceiveEvents() {
-
     // iOS onRecieve callback
     var win = function(info, data) {
         if (data) { // Binary data has to be a top level argument.
@@ -210,5 +209,7 @@ function base64ToArrayBuffer(base64) {
     }
     return bytes.buffer;
 }
+
+module.exports = exports;
 
 require('cordova-plugin-chrome-apps-common.helpers').runAtStartUp(registerReceiveEvents);

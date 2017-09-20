@@ -12,6 +12,10 @@ The API reference is [here](https://developer.chrome.com/apps/sockets_tcp).
 
 # Release Notes
 
+## 1.3.9 (Sep 12, 2017)
+* Fix connect() not firing when failed on iOS
+* Fix write not triggering reading bytes on iOS
+
 ## 1.3.7 (Jan 31, 2017)
 * Fix disconnect() sometimes not disconnecting on iOS
 
