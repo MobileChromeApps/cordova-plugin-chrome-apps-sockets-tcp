@@ -6,13 +6,13 @@ var platform = cordova.require('cordova/platform');
 var exec = cordova.require('cordova/exec'),
     ERROR_CODES = {
         SOCKET_CLOSED_BY_SERVER: {
-            ANDROID: -100,
-            IOS: 7,
+            ANDROID: [-100],
+            IOS: [7],
             STANDARDISED: 1
         },
         CONNECTION_TIMED_OUT: {
-            ANDROID: -118,
-            IOS: 57,
+            ANDROID: [-118, -2],
+            IOS: [57],
             STANDARDISED: 2
         }
     },
@@ -210,7 +210,7 @@ function registerReceiveEvents() {
 
     function getStandardiseErrorCode(errorCode) {
         var matchedError = Object.keys(ERROR_CODES).find(function (type) {
-                return ERROR_CODES[type][OS] === errorCode;
+                return ERROR_CODES[type][OS].includes(errorCode);
             });
 
         return matchedError ? ERROR_CODES[matchedError].STANDARDISED : errorCode;
