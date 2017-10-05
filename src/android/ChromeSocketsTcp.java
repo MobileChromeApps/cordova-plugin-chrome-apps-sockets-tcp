@@ -5,6 +5,8 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.SocketException;
 import java.nio.ByteBuffer;
+import java.nio.channels.ClosedChannelException;
+import java.nio.channels.NotYetConnectedException;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
@@ -30,7 +32,7 @@ import org.apache.cordova.PluginResult.Status;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
+import android.util.Base64;
 import android.net.Uri;
 import android.util.Log;
 
@@ -40,7 +42,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
   private Map<Integer, TcpSocket> sockets = new ConcurrentHashMap<Integer, TcpSocket>();
   private BlockingQueue<SelectorMessage> selectorMessages =
-      new LinkedBlockingQueue<SelectorMessage>();
+          new LinkedBlockingQueue<SelectorMessage>();
   private int nextSocket = 1;
   private CallbackContext recvContext;
   private Selector selector;
@@ -48,7 +50,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
   @Override
   public boolean execute(String action, CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
 
     if ("create".equals(action)) {
       create(args, callbackContext);
@@ -119,7 +121,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   public int registerAcceptedSocketChannel(SocketChannel socketChannel)
-      throws IOException {
+          throws IOException {
     TcpSocket socket = new TcpSocket(nextSocket++, socketChannel);
     sockets.put(Integer.valueOf(socket.getSocketId()), socket);
 
@@ -129,7 +131,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void create(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     JSONObject properties = args.getJSONObject(0);
 
     try {
@@ -141,7 +143,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void update(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     int socketId = args.getInt(0);
     JSONObject properties = args.getJSONObject(1);
     TcpSocket socket = sockets.get(Integer.valueOf(socketId));
@@ -159,7 +161,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void setPaused(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     int socketId = args.getInt(0);
     boolean paused = args.getBoolean(1);
 
@@ -181,7 +183,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void setKeepAlive(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     int socketId = args.getInt(0);
     boolean enable = args.getBoolean(1);
 
@@ -202,7 +204,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void setNoDelay(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     int socketId = args.getInt(0);
     boolean noDelay = args.getBoolean(1);
 
@@ -223,13 +225,13 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void connect(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     final int socketId = args.getInt(0);
     final String peerAddress = args.getString(1);
     final int peerPort = args.getInt(2);
 
     final TcpSocket socket = sockets.get(Integer.valueOf(socketId));
-    
+
     cordova.getThreadPool().execute(new Runnable() {
       public void run() {
         if (socket == null) {
@@ -252,7 +254,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void disconnect(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     int socketId = args.getInt(0);
 
     TcpSocket socket = sockets.get(Integer.valueOf(socketId));
@@ -266,7 +268,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void secure(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     int socketId = args.getInt(0);
     JSONObject options = args.getJSONObject(1);
 
@@ -303,7 +305,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void send(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     int socketId = args.getInt(0);
     byte[] data = args.getArrayBuffer(1);
 
@@ -334,7 +336,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void close(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     int socketId = args.getInt(0);
 
     TcpSocket socket = sockets.get(Integer.valueOf(socketId));
@@ -348,7 +350,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void getInfo(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
     int socketId = args.getInt(0);
 
     TcpSocket socket = sockets.get(Integer.valueOf(socketId));
@@ -361,7 +363,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void getSockets(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
 
     JSONArray results = new JSONArray();
 
@@ -373,7 +375,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void pipeToFile(CordovaArgs args, final CallbackContext callbackContext)
-      throws JSONException {
+          throws JSONException {
 
     final int socketId = args.getInt(0);
     final JSONObject options = args.getJSONObject(1);
@@ -382,26 +384,26 @@ public class ChromeSocketsTcp extends CordovaPlugin {
 
     // Use a background thread because setProperties may perform IO operations.
     cordova.getThreadPool().execute(new Runnable() {
-        public void run() {
-          String errMessage = null;
-          try {
-            if(!socket.setPipeToFileProperties(options, callbackContext)) {
-              errMessage = "Failed to start pipeToFile";
-            }
-          } catch (IOException e) {
-            errMessage = e.getMessage();
+      public void run() {
+        String errMessage = null;
+        try {
+          if(!socket.setPipeToFileProperties(options, callbackContext)) {
+            errMessage = "Failed to start pipeToFile";
           }
+        } catch (IOException e) {
+          errMessage = e.getMessage();
+        }
 
-          if (errMessage != null) {
-            try {
-              JSONObject info = buildErrorInfo(-1000, errMessage);
-              info.put("socketId", socketId);
-              sendReceiveEvent(new PluginResult(Status.ERROR, info));
-            } catch (JSONException e) {
-            }
+        if (errMessage != null) {
+          try {
+            JSONObject info = buildErrorInfo(-1000, errMessage);
+            info.put("socketId", socketId);
+            sendReceiveEvent(new PluginResult(Status.ERROR, info));
+          } catch (JSONException e) {
           }
         }
-      });
+      }
+    });
   }
 
   private void registerReceiveEvents(CordovaArgs args, final CallbackContext callbackContext) {
@@ -435,10 +437,10 @@ public class ChromeSocketsTcp extends CordovaPlugin {
   }
 
   private void addSelectorMessage(
-      TcpSocket socket, SelectorMessageType type, CallbackContext callbackContext) {
+          TcpSocket socket, SelectorMessageType type, CallbackContext callbackContext) {
     try {
       selectorMessages.put(new SelectorMessage(
-          socket, type, callbackContext));
+              socket, type, callbackContext));
       if (selector != null)
         selector.wakeup();
     } catch (InterruptedException e) {
@@ -463,7 +465,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     final CallbackContext callbackContext;
 
     SelectorMessage(
-        TcpSocket socket, SelectorMessageType type, CallbackContext callbackContext) {
+            TcpSocket socket, SelectorMessageType type, CallbackContext callbackContext) {
       this.socket = socket;
       this.type = type;
       this.callbackContext = callbackContext;
@@ -476,8 +478,8 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     private boolean running = true;
 
     SelectorThread(
-        BlockingQueue<SelectorMessage> selectorMessages,
-        Map<Integer, TcpSocket> sockets) {
+            BlockingQueue<SelectorMessage> selectorMessages,
+            Map<Integer, TcpSocket> sockets) {
       this.selectorMessages = selectorMessages;
       this.sockets = sockets;
     }
@@ -637,7 +639,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     private CallbackContext secureCallback;
 
     TcpSocket(int socketId, JSONObject properties)
-        throws JSONException, IOException {
+            throws JSONException, IOException {
       this.socketId = socketId;
 
       channel = SocketChannel.open();
@@ -653,7 +655,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     }
 
     TcpSocket(int socketId, SocketChannel acceptedSocket)
-        throws IOException {
+            throws IOException {
       this.socketId = socketId;
 
       channel = acceptedSocket;
@@ -728,7 +730,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     }
 
     boolean setPipeToFileProperties(JSONObject properties, CallbackContext callbackContext)
-        throws IOException {
+            throws IOException {
 
       resetPipeToFileProperties();
 
@@ -783,7 +785,8 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       try {
         connected = channel.connect(new InetSocketAddress(address, port));
       } catch (UnresolvedAddressException e) {
-        connectCallback.error(e.getMessage());
+        String errorMesssage = e.getMessage() != null ? e.getMessage() : "UnresolvedAddressException occured while connecting to socket";
+        connectCallback.error(errorMesssage);
       }
 
       if (connected) {
@@ -917,8 +920,8 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       // Increase the capacity of sslPeerAppBuffer to the size needed to decrypt
       // inbound data.
       ByteBuffer newBuffer = ByteBuffer.allocate(
-          sslEngine.getSession().getApplicationBufferSize() +
-          sslPeerAppBuffer.position());
+              sslEngine.getSession().getApplicationBufferSize() +
+                      sslPeerAppBuffer.position());
       sslPeerAppBuffer.flip();
       newBuffer.put(sslPeerAppBuffer);
       sslPeerAppBuffer = newBuffer;
@@ -929,8 +932,8 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       // needed.
       if (receiveDataBuffer.capacity() < sslEngine.getSession().getPacketBufferSize()) {
         ByteBuffer newBuffer = ByteBuffer.allocate(
-            sslEngine.getSession().getPacketBufferSize() +
-            receiveDataBuffer.position());
+                sslEngine.getSession().getPacketBufferSize() +
+                        receiveDataBuffer.position());
         receiveDataBuffer.flip();
         newBuffer.put(receiveDataBuffer);
         receiveDataBuffer = newBuffer;
@@ -941,8 +944,8 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       // Increase the capacity of sslNetBuffer to the size needed to encrypt
       // outbound data.
       ByteBuffer newBuffer = ByteBuffer.allocate(
-          sslEngine.getSession().getPacketBufferSize() +
-          sslNetBuffer.position());
+              sslEngine.getSession().getPacketBufferSize() +
+                      sslNetBuffer.position());
       sslNetBuffer.flip();
       newBuffer.put(sslNetBuffer);
       sslNetBuffer = newBuffer;
@@ -1000,7 +1003,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
         for (String version: sslEngine.getSupportedProtocols()) {
           int parsedVersion = parseTlsVersion(version, true);
           if ((parsedMinVersion == 0 || parsedMinVersion <= parsedVersion) &&
-              (parsedMaxVersion == 0 || parsedMaxVersion >= parsedVersion)) {
+                  (parsedMaxVersion == 0 || parsedMaxVersion >= parsedVersion)) {
             enabledProtocols.add(version);
           }
         }
@@ -1021,7 +1024,7 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     }
 
     void setSecureCallbackAndOptions(
-        String minVersion, String maxVersion, CallbackContext callbackContext) {
+            String minVersion, String maxVersion, CallbackContext callbackContext) {
       if (sslEngine != null)
         return;
 
@@ -1103,6 +1106,16 @@ public class ChromeSocketsTcp extends CordovaPlugin {
     }
 
     // This method can be only called by selector thread.
+    private void onReadError(int resultCode, Exception error) {
+      try {
+        JSONObject info = buildErrorInfo(resultCode, error.getMessage());
+        info.put("socketId", socketId);
+        info.put("e", error);
+        sendReceiveEvent(new PluginResult(Status.ERROR, info));
+      } catch (JSONException e) {}
+    }
+
+    // This method can be only called by selector thread.
     int read() throws JSONException {
       int bytesRead = 0;
       if (paused) {
@@ -1114,17 +1127,21 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       try {
         bytesRead = channel.read(receiveDataBuffer);
 
-        if (bytesRead < 0)
-          throw new IOException("Socket closed by remote peer");
+        if (bytesRead < 0) {
+          throw new ClosedChannelException();
+        }
+
         if (bytesRead == 0) {
           Log.w(LOG_TAG, "no data read from socket");
           return 0;
         }
 
+
         if (sslEngine != null) {
           SSLEngineResult res = tryUnwrapReceiveData();
 
           if (res.getStatus() == SSLEngineResult.Status.OK) {
+
             sendReceive(sslPeerAppBuffer);
           }
           // else: need to wait for more data.
@@ -1133,13 +1150,20 @@ public class ChromeSocketsTcp extends CordovaPlugin {
           sendReceive(receiveDataBuffer);
           receiveDataBuffer.clear();
         }
-      } catch (IOException e) {
-        JSONObject info = buildErrorInfo(-2, e.getMessage());
-        info.put("socketId", socketId);
-        sendReceiveEvent(new PluginResult(Status.ERROR, info));
+      } catch (SocketException e) {
+        onReadError(-118, e);
         return -1;
-      } catch (JSONException e) {
-      }
+      } catch (ClosedChannelException e) {
+        onReadError(-100, e);
+        return -1;
+      } catch (IOException e) {
+        onReadError(-2, e);
+        return -1;
+      } catch (NotYetConnectedException e) {
+        onReadError(-15, e);
+        return -1;
+      } catch (JSONException e) {}
+
       return bytesRead;
     }
 
@@ -1189,8 +1213,8 @@ public class ChromeSocketsTcp extends CordovaPlugin {
       if (recvBytes != null) {
         JSONObject info = new JSONObject();
         info.put("socketId", socketId);
+        info.put("data", Base64.encodeToString(recvBytes, Base64.DEFAULT));
         sendReceiveEvent(new PluginResult(Status.OK, info));
-        sendReceiveEvent(new PluginResult(Status.OK, recvBytes));
       }
     }
   }

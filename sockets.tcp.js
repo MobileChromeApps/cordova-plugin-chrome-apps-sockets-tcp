@@ -3,8 +3,20 @@
 // found in the LICENSE file.
 var Event = require('cordova-plugin-chrome-apps-common.events');
 var platform = cordova.require('cordova/platform');
-var exec = cordova.require('cordova/exec');
-var callbackWithError = require('cordova-plugin-chrome-apps-common.errors').callbackWithError;
+var exec = cordova.require('cordova/exec'),
+    ERROR_CODES = {
+        SOCKET_CLOSED_BY_SERVER: {
+            ANDROID: -100,
+            IOS: 7,
+            STANDARDISED: 1
+        },
+        CONNECTION_TIMED_OUT: {
+            ANDROID: -118,
+            IOS: 57,
+            STANDARDISED: 2
+        }
+    },
+    OS = platform.id === 'android' ? 'ANDROID' : 'IOS';
 
 exports.create = function(properties, callback) {
     if (typeof properties == 'function') {
@@ -38,7 +50,7 @@ exports.setKeepAlive = function(socketId, enabled, delay, callback) {
             callback(0);
         };
         var fail = callback && function(error) {
-            callbackWithError(error.message, callback, error.resultCode);
+            exports.onReceiveError.fire(error);
         };
         exec(win, fail, 'ChromeSocketsTcp', 'setKeepAlive', [socketId, enabled, delay]);
     } else {
@@ -52,7 +64,7 @@ exports.setNoDelay = function(socketId, noDelay, callback) {
             callback(0);
         };
         var fail = callback && function(error) {
-            callbackWithError(error.message, callback, error.resultCode);
+            exports.onReceiveError.fire(error);
         };
         exec(win, fail, 'ChromeSocketsTcp', 'setNoDelay', [socketId, noDelay]);
     } else {
@@ -65,7 +77,7 @@ exports.connect = function(socketId, peerAddress, peerPort, callback) {
         callback(0);
     };
     var fail = callback && function(error) {
-        callbackWithError(error.message, callback, error.resultCode);
+        exports.onReceiveError.fire(error);
     };
     exec(win, fail, 'ChromeSocketsTcp', 'connect', [socketId, peerAddress, peerPort]);
 };
@@ -83,7 +95,7 @@ exports.secure = function(socketId, options, callback) {
         callback(0);
     };
     var fail = callback && function(error) {
-        callbackWithError(error.message, callback, error.resultCode);
+        exports.onReceiveError.fire(error);
     };
     exec(win, fail, 'ChromeSocketsTcp', 'secure', [socketId, options]);
 };
@@ -105,7 +117,7 @@ exports.send = function(socketId, data, callback) {
             bytesSent: 0,
             resultCode: error.resultCode
         };
-        callbackWithError(error.message, callback, sendInfo);
+         exports.onReceiveError.fire(error, sendInfo);
     };
     if (data.byteLength == 0) {
       win(0);
@@ -146,64 +158,58 @@ exports.onReceive = new Event('onReceive');
 exports.onReceiveError = new Event('onReceiveError');
 
 function registerReceiveEvents() {
-
+    // iOS onRecieve callback
     var win = function(info, data) {
         if (data) { // Binary data has to be a top level argument.
             info.data = data;
         }
         exports.onReceive.fire(info);
-
         if (data) { // Only exec readyToRead when not redirect to file
 
             // readyToRead signals the plugin to read the next tcp packet. exec
             // it after fire() will allow all API calls in the onReceive
             // listener exec before next read, such as, pause the socket.
-            exec(null, null, 'ChromeSocketsTcp', 'readyToRead', []);
+            var args = [];
+            if('socketId' in data) args = [data.socketId];
+            exec(null, null, 'ChromeSocketsTcp', 'readyToRead', args);
         }
     };
 
-    // TODO: speical callback for android, DELETE when multipart result for
-    // android is avaliable
     if (platform.id == 'android') {
-        win = (function() {
-            var recvInfo;
-            var call = 0;
-            return function(info) {
-                if (call === 0) {
-                    recvInfo = info;
-                    if (!recvInfo.uri) {
-                        call++;
-
-                        // uri implies only one callback becasue redirect to
-                        // file is enabled, and binary data is not included in
-                        // the receiveInfo.
-                        return;
-                    }
-                } else {
-                    recvInfo.data = info;
-                    call = 0;
-                }
-                exports.onReceive.fire(recvInfo);
-                if (recvInfo.data) { // Only exec readyToRead when not redirect to file
-
-                    // readyToRead signals the plugin to read the next tcp
-                    // packet. exec it after fire() will allow all API calls in
-                    // the onReceive listener exec before next read, such as,
-                    // pause the socket.
-                    exec(null, null, 'ChromeSocketsTcp', 'readyToRead', [recvInfo.socketId]);
-                }
-            };
-        })();
+        win = function(result) {
+            result.data = base64ToArrayBuffer(result.data);
+            exports.onReceive.fire(result);
+            exec(null, null, 'ChromeSocketsTcp', 'readyToRead', [result.socketId]);
+        };
     }
 
-    var fail = function(info) {
-        var error = function() {
-            exports.onReceiveError.fire(info);
-        };
-        callbackWithError(info.message, error);
+    function getStandardiseErrorCode(errorCode) {
+        var matchedError = Object.keys(ERROR_CODES).find(function (type) {
+                return ERROR_CODES[type][OS] === errorCode;
+            });
+
+        return matchedError ? ERROR_CODES[matchedError].STANDARDISED : errorCode;
+    }
+
+    var fail = function (info) {
+        info.resultCode = getStandardiseErrorCode(info.resultCode);
+
+        exports.onReceiveError.fire(info);
     };
 
     exec(win, fail, 'ChromeSocketsTcp', 'registerReceiveEvents', []);
 }
+
+function base64ToArrayBuffer(base64) {
+    var binary_string =  window.atob(base64);
+    var len = binary_string.length;
+    var bytes = new Uint8Array( len );
+    for (var i = 0; i < len; i++)        {
+        bytes[i] = binary_string.charCodeAt(i);
+    }
+    return bytes.buffer;
+}
+
+module.exports = exports;
 
 require('cordova-plugin-chrome-apps-common.helpers').runAtStartUp(registerReceiveEvents);

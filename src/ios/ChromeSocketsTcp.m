@@ -35,12 +35,12 @@ static NSString* stringFromData(NSData* data) {
 @interface ChromeSocketsTcpSocket : NSObject {
     @public
     __weak ChromeSocketsTcp* _plugin;
-    
+
     NSUInteger _socketId;
     NSNumber* _persistent;
     NSString* _name;
     NSNumber* _bufferSize;
-    
+
     // pipeToFile options
     NSNumber* _append;
     NSString* _uri;
@@ -49,17 +49,17 @@ static NSString* stringFromData(NSData* data) {
     id _pipeToFileCompleteCallback;
     long _bytesReadNotSend;
     NSTimeInterval _lastProgressTimestamp;
-    
+
     NSUInteger _readTag;
     NSUInteger _receivedTag;
-    
+
     NSNumber* _paused;
     NSMutableArray* _pausedBuffers;
-    
+
     GCDAsyncSocket* _socket;
-    
+
     NSMutableArray* _sendCallbacks;
-    
+
     id _connectCallback;
     id _disconnectCallback;
     id _secureCallback;
@@ -73,7 +73,7 @@ static NSString* stringFromData(NSData* data) {
     NSMutableDictionary* _sockets;
     NSUInteger _nextSocketId;
     NSString* _receiveEventsCallbackId;
-    
+
     @public
     NSInteger _pendingReceive;
 }
@@ -162,7 +162,7 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
     NSNumber* localPort = [NSNumber numberWithUnsignedInt:[_socket localPort]];
     NSString* peerAddress = [_socket connectedHost];
     NSNumber* peerPort = [NSNumber numberWithUnsignedInt:[_socket connectedPort]];
-   
+
     NSMutableDictionary* socketInfo = [@{
         @"socketId": [NSNumber numberWithUnsignedInteger:_socketId],
         @"persistent": _persistent,
@@ -171,18 +171,18 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
         @"connected": [NSNumber numberWithBool:[_socket isConnected]],
         @"paused": _paused,
     } mutableCopy];
-    
+
    if (localAddress) {
         socketInfo[@"localAddress"] = localAddress;
         socketInfo[@"localPort"] = localPort;
     }
-    
+
     if (peerAddress) {
         socketInfo[@"peerAddress"] = peerAddress;
         socketInfo[@"peerPort"] = peerPort;
     }
-    
-    
+
+
     return [socketInfo copy];
 }
 
@@ -191,26 +191,26 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
     NSNumber* persistent = theProperties[@"persistent"];
     NSString* name = theProperties[@"name"];
     NSNumber* bufferSize = theProperties[@"bufferSize"];
-   
+
     if (persistent)
         _persistent = persistent;
-    
+
     if (name)
         _name = name;
-    
+
     if (bufferSize && _bufferSize == 0 && ![_paused boolValue]) // read delegate method won't be called when _bufferSize == 0
         [_socket readDataWithTimeout:-1 buffer:nil bufferOffset:0 maxLength:[bufferSize unsignedIntegerValue] tag:++_readTag];
-    
+
     if (bufferSize)
         _bufferSize = bufferSize;
-    
+
    // Set undefined properties to default value
     if (_persistent == nil)
         _persistent = [NSNumber numberWithBool:NO];
-    
+
     if (_name == nil)
         _name = @"";
-    
+
     if (_bufferSize == nil)
         _bufferSize = [NSNumber numberWithUnsignedInteger:4096];
 }
@@ -220,34 +220,34 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
     NSNumber* append = theProperties[@"append"];
     NSNumber* numBytes = theProperties[@"numBytes"];
     NSString* uri = theProperties[@"uri"];
-    
+
     [self resetPipeToFileProperties];
-    
+
     if (append) {
         _append = append;
     } else {
         _append = [NSNumber numberWithBool:NO];
     }
-    
+
     if (numBytes && [numBytes integerValue] > 0) {
         _numBytes = [numBytes integerValue];
     } else {
         return NO;
     }
-    
+
     if (uri && uri.length > 0) {
         NSString* filePath = [[NSURL URLWithString:uri] path];
-        
+
         if(![NSFileManager.defaultManager fileExistsAtPath:filePath]) {
             [[NSFileManager defaultManager] createFileAtPath:filePath contents:nil attributes:nil];
         }
-        
+
         _uriFileHandle = [NSFileHandle fileHandleForWritingAtPath:filePath];
-        
+
         if (append.boolValue) {
             [_uriFileHandle seekToEndOfFile];
-        } 
-        
+        }
+
         if (_uriFileHandle) {
             _uri = uri;
         } else {
@@ -256,7 +256,7 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
     } else {
         return NO;
     }
-    
+
     _lastProgressTimestamp = [[NSDate date] timeIntervalSince1970];
     return YES;
 }
@@ -265,7 +265,7 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 {
     if (_readTag == _receivedTag && _plugin->_pendingReceive == 0 && [_socket isConnected] && ![_paused boolValue]) {
         [_socket readDataWithTimeout:-1 buffer:nil bufferOffset:0 maxLength:[_bufferSize unsignedIntegerValue] tag:++_readTag];
-    }   
+    }
 }
 
 - (void)setPaused:(NSNumber*)paused
@@ -285,12 +285,12 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 - (void)sendReceivedData:(NSData*)data
 {
     if (_uriFileHandle) {
-        
+
         NSUInteger bytesRead = 0;
-        
+
         // extra data that need to send to the webveiw
         NSData* extraData = nil;
-        
+
         if (_numBytes >= [data length]) {
             [_uriFileHandle writeData:data];
             bytesRead = data.length;
@@ -300,11 +300,11 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
             [_uriFileHandle writeData:writeData];
             bytesRead = writeData.length;
         }
-        
+
         _numBytes -= bytesRead;
-        
+
         NSTimeInterval timestamp = [[NSDate date] timeIntervalSince1970];
-        
+
         _bytesReadNotSend += bytesRead;
         if (_numBytes == 0 || timestamp - _lastProgressTimestamp > PIPE_TO_FILE_PROGRESS_INTERVAL) {
             NSDictionary *info = @{
@@ -312,19 +312,19 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
                 @"uri": _uri,
                 @"bytesRead": [NSNumber numberWithUnsignedInteger:_bytesReadNotSend],
             };
-        
+
             [_plugin fireReceiveEventsWithInfo:info waitReadyToRead:NO];
             _bytesReadNotSend = 0;
             _lastProgressTimestamp = timestamp;
         }
-        
+
         if (_numBytes == 0) {
             void (^callback)() = _pipeToFileCompleteCallback;
             [self resetPipeToFileProperties];
             assert(callback != nil);
             callback();
         }
-        
+
         if (extraData) {
             [_plugin fireReceiveEventsWithSocketId:_socketId data:extraData];
         } else {
@@ -339,13 +339,13 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 - (void)socket:(GCDAsyncSocket *)sock didConnectToHost:(NSString *)host port:(UInt16)port
 {
     VERBOSE_LOG(@"socket:didConnectToHost socketId: %u", _socketId);
-    
+
     void (^callback)(BOOL, NSError*) = _connectCallback;
     assert(callback != nil);
     _connectCallback = nil;
-    
+
     callback(YES, nil);
-    
+
     if (![_paused boolValue])
         [_socket readDataWithTimeout:-1 buffer:nil bufferOffset:0 maxLength:[_bufferSize unsignedIntegerValue] tag:++_readTag];
 }
@@ -353,9 +353,9 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 - (void)socket:(GCDAsyncSocket *)sock didReadData:(NSData *)data withTag:(long)tag
 {
     VERBOSE_LOG(@"socket:didReadDataWithTag socketId: %u", _socketId);
-    
+
     _receivedTag = tag;
-    
+
     if ([_paused boolValue]) {
         [_pausedBuffers addObject:data];
     } else {
@@ -365,14 +365,14 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 
 - (void)socket:(GCDAsyncSocket *)sock didWriteDataWithTag:(long)tag
 {
-    VERBOSE_LOG(@"socket:didWriteDataWithTag socketId: %u", _socketId);
-    
     assert([_sendCallbacks count] != 0);
     void (^callback)() = _sendCallbacks[0];
     assert(callback != nil);
     [_sendCallbacks removeObjectAtIndex:0];
 
     callback();
+
+    [_socket readDataWithTimeout:-1 buffer:nil bufferOffset:0 maxLength:[_bufferSize unsignedIntegerValue] tag:-1];
 }
 
 - (void)socketDidDisconnect:(GCDAsyncSocket *)sock withError:(NSError *)err
@@ -382,17 +382,21 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
         assert(_disconnectCallback != nil);
         _disconnectCallback = nil;
         callback();
+    } else if (_connectCallback) {
+        void(^callback)(BOOL, NSError*) = _connectCallback;
+        callback(NO, err);
+        _connectCallback = nil;
     } else if (err) {
         [_plugin fireReceiveErrorEventsWithSocketId:_socketId errorCode:[err code] message:[err localizedDescription]];
     }
-    
+
     [self resetSocket];
 }
 
 - (void)socketDidSecure:(GCDAsyncSocket *)sock
 {
     VERBOSE_LOG(@"socketDidSecure socketId: %u", _socketId);
-    
+
     assert(_secureCallback != nil);
     void (^callback)() = _secureCallback;
     _secureCallback = nil;
@@ -429,11 +433,11 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 - (void)create:(CDVInvokedUrlCommand*)command
 {
     NSDictionary* properties = [command argumentAtIndex:0];
-    
+
     ChromeSocketsTcpSocket* socket = [[ChromeSocketsTcpSocket alloc] initWithId:_nextSocketId++ plugin:self properties:properties];
-    
+
     _sockets[[NSNumber numberWithUnsignedInteger:socket->_socketId]] = socket;
-    
+
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:(int)socket->_socketId] callbackId:command.callbackId];
 }
 
@@ -441,12 +445,12 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 {
     NSNumber* socketId = [command argumentAtIndex:0];
     NSDictionary* properties = [command argumentAtIndex:1];
-    
+
     ChromeSocketsTcpSocket *socket = _sockets[socketId];
-    
+
     if (socket == nil)
         return;
-    
+
     [socket setProperties:properties];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK] callbackId:command.callbackId];
 }
@@ -455,12 +459,12 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 {
     NSNumber* socketId = [command argumentAtIndex:0];
     NSNumber* paused = [command argumentAtIndex:1];
-    
+
     ChromeSocketsTcpSocket* socket = _sockets[socketId];
-    
+
     if (socket == nil)
         return;
-    
+
     [socket setPaused:paused];
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK] callbackId:command.callbackId];
 }
@@ -469,15 +473,16 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 {
     NSNumber* socketId = [command argumentAtIndex:0];
     NSString* peerAddress = [command argumentAtIndex:1];
+
     NSUInteger peerPort = [[command argumentAtIndex:2] unsignedIntegerValue];
-    
+
     ChromeSocketsTcpSocket* socket = _sockets[socketId];
-    
+
     if (socket == nil) {
         [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self buildErrorInfoWithErrorCode:ENOTSOCK message:@"Invalid Argument"]] callbackId:command.callbackId];
         return;
     }
-   
+
     id<CDVCommandDelegate> commandDelegate = self.commandDelegate;
     socket->_connectCallback = [^(BOOL success, NSError* error) {
         if (success) {
@@ -486,9 +491,10 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
             [commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self buildErrorInfoWithErrorCode:[error code] message:[error localizedDescription]]] callbackId:command.callbackId];
         }
     } copy];
-    
-    NSError* err;
-    BOOL success = [socket->_socket connectToHost:peerAddress onPort:peerPort error:&err];
+
+    NSError* err = nil;
+    BOOL success = [socket->_socket connectToHost:peerAddress onPort:peerPort withTimeout:2 error:&err];
+
     if (!success) {
         void(^callback)(BOOL, NSError*) = socket->_connectCallback;
         callback(NO, err);
@@ -499,7 +505,7 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 - (void)disconnectSocketWithId:(NSNumber*)socketId callbackId:(NSString*)theCallbackId close:(BOOL)close
 {
      ChromeSocketsTcpSocket* socket = _sockets[socketId];
-    
+
     if (socket == nil)
         return;
 
@@ -510,14 +516,14 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
         if (close)
             [_sockets removeObjectForKey:socketId];
     } copy];
-    
+
     if ([socket->_socket isDisconnected]) {
         void (^callback)() = socket->_disconnectCallback;
         socket->_disconnectCallback = nil;
         callback();
     } else {
         [socket->_socket disconnect];
-    }      
+    }
 }
 
 
@@ -546,35 +552,35 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 {
     NSNumber* socketId = [command argumentAtIndex:0];
     NSDictionary* options = [command argumentAtIndex:1];
-    
+
     ChromeSocketsTcpSocket* socket = _sockets[socketId];
-    
+
     if (socket == nil) {
         [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self buildErrorInfoWithErrorCode:ENOTSOCK message:@"Invalid Argument"]] callbackId:command.callbackId];
         return;
     }
- 
+
     id<CDVCommandDelegate> commandDelegate = self.commandDelegate;
     socket->_secureCallback = [^() {
         [commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK] callbackId:command.callbackId];
     } copy];
-  
+
     NSMutableDictionary* settings = [NSMutableDictionary dictionaryWithCapacity:2];
-    
+
     NSDictionary* tlsVersion = options[@"tlsVersion"];
     if (tlsVersion) {
         NSNumber* minVersion = [self getSecureVersion:tlsVersion[@"min"]];
         NSNumber* maxVersion = [self getSecureVersion:tlsVersion[@"max"]];
-        
+
         if (minVersion) {
             settings[GCDAsyncSocketSSLProtocolVersionMin] = minVersion;
         }
-        
+
         if (maxVersion) {
             settings[GCDAsyncSocketSSLProtocolVersionMax] = maxVersion;
         }
     }
-    
+
     [socket->_socket startTLS:settings];
 }
 
@@ -582,23 +588,23 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 {
     NSNumber* socketId = [command argumentAtIndex:0];
     NSData* data = [command argumentAtIndex:1];
-    
+
     ChromeSocketsTcpSocket* socket = _sockets[socketId];
-    
+
     if (socket == nil) {
         [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self buildErrorInfoWithErrorCode:ENOTSOCK message:@"Invalid Argument"]] callbackId:command.callbackId];
         return;
     }
-   
+
     if ([socket->_socket isConnected]) {
         id<CDVCommandDelegate> commandDelegate = self.commandDelegate;
         [socket->_sendCallbacks addObject:[^() {
             VERBOSE_LOG(@"ACK %@.%@ Write", socketId, command.callbackId);
             [commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsInt:(int)[data length]] callbackId:command.callbackId];
         } copy]];
-        
+
         [socket->_socket writeData:data withTimeout:-1 tag:-1];
-        
+
     } else {
         [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:[self buildErrorInfoWithErrorCode:ENOTCONN message:@"Socket Not Connected"]] callbackId:command.callbackId];
     }
@@ -618,12 +624,12 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 - (void)getInfo:(CDVInvokedUrlCommand*)command
 {
     NSNumber* socketId = [command argumentAtIndex:0];
-    
+
     ChromeSocketsTcpSocket* socket = _sockets[socketId];
-    
+
     if (socket == nil)
         return;
-    
+
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsDictionary:[socket getInfo]] callbackId:command.callbackId];
 }
 
@@ -631,11 +637,11 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 {
     NSArray* sockets = [_sockets allValues];
     NSMutableArray* socketsInfo = [NSMutableArray arrayWithCapacity:[sockets count]];
-    
+
     for (ChromeSocketsTcpSocket* socket in sockets) {
         [socketsInfo addObject:[socket getInfo]];
     }
-    
+
     [self.commandDelegate sendPluginResult:[CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:socketsInfo] callbackId:command.callbackId];
 }
 
@@ -643,12 +649,12 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 {
     NSNumber* socketId = [command argumentAtIndex:0];
     NSDictionary* options = [command argumentAtIndex:1];
-    
+
     ChromeSocketsTcpSocket* socket = _sockets[socketId];
-    
+
     if (socket == nil)
         return;
-    
+
     if ([socket setPipeToFileProperties:options]) {
         id<CDVCommandDelegate> commandDelegate = self.commandDelegate;
         socket->_pipeToFileCompleteCallback = [^() {
@@ -693,16 +699,16 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 - (void)fireReceiveErrorEventsWithSocketId:(NSUInteger)theSocketId errorCode:(NSUInteger)theErrorCode message:(NSString*)theMessage
 {
     assert(_receiveEventsCallbackId != nil);
-    
+
     NSDictionary* info = @{
         @"socketId": [NSNumber numberWithUnsignedInteger:theSocketId],
         @"resultCode": [NSNumber numberWithUnsignedInteger:theErrorCode],
         @"message": theMessage,
     };
-    
+
     CDVPluginResult *result = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsDictionary:info];
     [result setKeepCallbackAsBool:YES];
-    
+
     [self.commandDelegate sendPluginResult:result callbackId:_receiveEventsCallbackId];
 }
 
@@ -710,9 +716,9 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
 {
     ChromeSocketsTcpSocket* socket = [[ChromeSocketsTcpSocket alloc] initAcceptedSocketWithId:_nextSocketId++ plugin:self socket:theSocket];
     _sockets[[NSNumber numberWithUnsignedInteger:socket->_socketId]] = socket;
-    
+
     [socket setPaused:[NSNumber numberWithBool:YES]];
-    
+
     return socket->_socketId;
 }
 
@@ -722,7 +728,7 @@ NSTimeInterval const PIPE_TO_FILE_PROGRESS_INTERVAL = 0.1;
     if (_pendingReceive == 0) {
         for (ChromeSocketsTcpSocket* socket in [_sockets allValues]) {
             [socket resumeReadIfNotReading];
-        }              
+        }
     }
 }
 
