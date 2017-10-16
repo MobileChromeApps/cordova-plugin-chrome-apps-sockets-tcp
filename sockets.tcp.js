@@ -117,6 +117,7 @@ exports.send = function(socketId, data, callback) {
             bytesSent: 0,
             resultCode: error.resultCode
         };
+         callback(sendInfo);
          exports.onReceiveError.fire(error, sendInfo);
     };
     if (data.byteLength == 0) {
