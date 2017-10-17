@@ -116,10 +116,11 @@ exports.send = function(socketId, data, callback) {
         var sendInfo = {
             bytesSent: 0,
             resultCode: error.resultCode,
-            message: error.message
+            message: error.message,
+            socketId: socketId
         };
-         callback(sendInfo);
-         exports.onReceiveError.fire(error, sendInfo);
+        callback(sendInfo);
+        exports.onReceiveError.fire(sendInfo);
     };
     if (data.byteLength == 0) {
       win(0);
