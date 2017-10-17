@@ -119,7 +119,6 @@ exports.send = function(socketId, data, callback) {
             message: error.message,
             socketId: socketId
         };
-        callback(sendInfo);
         exports.onReceiveError.fire(sendInfo);
     };
     if (data.byteLength == 0) {
