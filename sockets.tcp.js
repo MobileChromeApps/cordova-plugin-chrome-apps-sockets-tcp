@@ -115,7 +115,8 @@ exports.send = function(socketId, data, callback) {
     var fail = callback && function(error) {
         var sendInfo = {
             bytesSent: 0,
-            resultCode: error.resultCode
+            resultCode: error.resultCode,
+            message: error.message
         };
          callback(sendInfo);
          exports.onReceiveError.fire(error, sendInfo);
