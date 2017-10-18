@@ -115,9 +115,11 @@ exports.send = function(socketId, data, callback) {
     var fail = callback && function(error) {
         var sendInfo = {
             bytesSent: 0,
-            resultCode: error.resultCode
+            resultCode: error.resultCode,
+            message: error.message,
+            socketId: socketId
         };
-         exports.onReceiveError.fire(error, sendInfo);
+        exports.onReceiveError.fire(sendInfo);
     };
     if (data.byteLength == 0) {
       win(0);
