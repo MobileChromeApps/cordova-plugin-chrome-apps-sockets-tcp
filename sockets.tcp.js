@@ -50,7 +50,13 @@ exports.setKeepAlive = function(socketId, enabled, delay, callback) {
             callback(0);
         };
         var fail = callback && function(error) {
-            exports.onReceiveError.fire(error);
+                var sendInfo = {
+                    bytesSent: 0,
+                    resultCode: error.resultCode,
+                    message: error.message,
+                    socketId: socketId
+                };
+                exports.onReceiveError.fire(sendInfo);
         };
         exec(win, fail, 'ChromeSocketsTcp', 'setKeepAlive', [socketId, enabled, delay]);
     } else {
@@ -64,7 +70,13 @@ exports.setNoDelay = function(socketId, noDelay, callback) {
             callback(0);
         };
         var fail = callback && function(error) {
-            exports.onReceiveError.fire(error);
+                var sendInfo = {
+                    bytesSent: 0,
+                    resultCode: error.resultCode,
+                    message: error.message,
+                    socketId: socketId
+                };
+                exports.onReceiveError.fire(sendInfo);
         };
         exec(win, fail, 'ChromeSocketsTcp', 'setNoDelay', [socketId, noDelay]);
     } else {
@@ -77,7 +89,13 @@ exports.connect = function(socketId, peerAddress, peerPort, callback) {
         callback(0);
     };
     var fail = callback && function(error) {
-        exports.onReceiveError.fire(error);
+            var sendInfo = {
+                bytesSent: 0,
+                resultCode: error.resultCode,
+                message: error.message,
+                socketId: socketId
+            };
+            exports.onReceiveError.fire(sendInfo);
     };
     exec(win, fail, 'ChromeSocketsTcp', 'connect', [socketId, peerAddress, peerPort]);
 };
@@ -95,7 +113,13 @@ exports.secure = function(socketId, options, callback) {
         callback(0);
     };
     var fail = callback && function(error) {
-        exports.onReceiveError.fire(error);
+            var sendInfo = {
+                bytesSent: 0,
+                resultCode: error.resultCode,
+                message: error.message,
+                socketId: socketId
+            };
+            exports.onReceiveError.fire(sendInfo);
     };
     exec(win, fail, 'ChromeSocketsTcp', 'secure', [socketId, options]);
 };
