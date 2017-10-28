@@ -33,7 +33,6 @@
   </platform>
 
   <platform name="ios">
-    <dependency id="cordova-plugin-chrome-apps-iossocketscommon@1" />
     <framework src="Security.framework" />
     <framework src="CFNetwork.framework" />
     <source-file src="src/ios/ChromeSocketsTcp.m" />
