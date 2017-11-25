@@ -167,13 +167,10 @@ function registerReceiveEvents() {
     if (platform.id == 'android') {
         win = (function() {
             var recvInfo;
-            var call = 0;
             return function(info) {
-                if (call === 0) {
+                if (info.socketId) {
                     recvInfo = info;
                     if (!recvInfo.uri) {
-                        call++;
-
                         // uri implies only one callback becasue redirect to
                         // file is enabled, and binary data is not included in
                         // the receiveInfo.
@@ -181,16 +178,29 @@ function registerReceiveEvents() {
                     }
                 } else {
                     recvInfo.data = info;
-                    call = 0;
                 }
                 exports.onReceive.fire(recvInfo);
                 if (recvInfo.data) { // Only exec readyToRead when not redirect to file
-
                     // readyToRead signals the plugin to read the next tcp
                     // packet. exec it after fire() will allow all API calls in
                     // the onReceive listener exec before next read, such as,
                     // pause the socket.
-                    exec(null, null, 'ChromeSocketsTcp', 'readyToRead', [recvInfo.socketId]);
+                    var i = 0;
+                    var socketId = recvInfo.socketId;
+                    if(!socketId){
+                        console.log('recvInfo.socketId null', recvInfo);
+                        return;
+                    }
+                    var readyToRead = function() {
+                        if(i) console.log('readyToRead retry', i, socketId);
+                        if(i > 10) return;
+
+                        setTimeout(function() {
+                            exec(null, readyToRead, 'ChromeSocketsTcp', 'readyToRead', [socketId])
+                        }, 1);
+                        i++;
+                    }
+                    exec(null, readyToRead, 'ChromeSocketsTcp', 'readyToRead', [socketId])
                 }
             };
         })();
