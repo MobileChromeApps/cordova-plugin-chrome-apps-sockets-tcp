@@ -65,6 +65,9 @@ exports.connect = function(socketId, peerAddress, peerPort, callback) {
         callback(0);
     };
     var fail = callback && function(error) {
+      if(!('message' in error && 'resultCode' in error))
+        callbackWithError(error, callback, -1);
+      else
         callbackWithError(error.message, callback, error.resultCode);
     };
     exec(win, fail, 'ChromeSocketsTcp', 'connect', [socketId, peerAddress, peerPort]);
@@ -147,51 +150,31 @@ exports.onReceiveError = new Event('onReceiveError');
 
 function registerReceiveEvents() {
 
+    // iOS onRecieve callback
     var win = function(info, data) {
         if (data) { // Binary data has to be a top level argument.
             info.data = data;
         }
         exports.onReceive.fire(info);
-
         if (data) { // Only exec readyToRead when not redirect to file
 
             // readyToRead signals the plugin to read the next tcp packet. exec
             // it after fire() will allow all API calls in the onReceive
             // listener exec before next read, such as, pause the socket.
-            exec(null, null, 'ChromeSocketsTcp', 'readyToRead', []);
+            var args = [];
+            if('socketId' in data) args = [data.socketId];
+            exec(null, null, 'ChromeSocketsTcp', 'readyToRead', args);
         }
     };
 
-    // TODO: speical callback for android, DELETE when multipart result for
-    // android is avaliable
     if (platform.id == 'android') {
         win = (function() {
             var recvInfo;
-            var call = 0;
             return function(info) {
-                if (call === 0) {
-                    recvInfo = info;
-                    if (!recvInfo.uri) {
-                        call++;
-
-                        // uri implies only one callback becasue redirect to
-                        // file is enabled, and binary data is not included in
-                        // the receiveInfo.
-                        return;
-                    }
-                } else {
-                    recvInfo.data = info;
-                    call = 0;
-                }
-                exports.onReceive.fire(recvInfo);
-                if (recvInfo.data) { // Only exec readyToRead when not redirect to file
-
-                    // readyToRead signals the plugin to read the next tcp
-                    // packet. exec it after fire() will allow all API calls in
-                    // the onReceive listener exec before next read, such as,
-                    // pause the socket.
-                    exec(null, null, 'ChromeSocketsTcp', 'readyToRead', [recvInfo.socketId]);
-                }
+                if ('socketId' in info) recvInfo = info;
+                else recvInfo.data = info;
+                if('data' in recvInfo)
+                  exports.onReceive.fire(recvInfo);
             };
         })();
     }
